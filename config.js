@@ -63,8 +63,9 @@ window.CALC_CONFIG = {
      let the buyer adjust everything themselves.
   --------------------------------------------------------------------- */
   project: {
-    name: "Sample New Launch Project",
-    location: "Klang Valley",
+    name: "Queenswoodz",
+    location: "Bukit Jalil",
+    unitNumber: "B-22-12",
     unitSizeSqft: 800,
     propertyPrice: 650000,
 

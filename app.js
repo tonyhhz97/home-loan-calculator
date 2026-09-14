@@ -60,6 +60,8 @@
   const num = (v, fallback) => (v !== null && v !== '' && !isNaN(v) ? parseFloat(v) : fallback);
 
   const projectName = params.get('name') || p.name;
+  const initLocation = params.get('location') || p.location || '';
+  const initUnitNumber = params.get('unit') || p.unitNumber || '';
   const initPrice = num(params.get('price'), p.propertyPrice);
   const initSize = num(params.get('size'), p.unitSizeSqft);
   const initRental = num(params.get('rental'), p.expectedMonthlyRental);
@@ -133,7 +135,7 @@
     <line x1="12" y1="14.5" x2="12" y2="14.5"></line>
     <line x1="16" y1="14.5" x2="16" y2="14.5"></line>
     <line x1="8" y1="18.5" x2="8" y2="18.5"></line>
-    <line x1="12" y1="18.5" x2="16" y1="18.5"></line>
+    <line x1="12" y1="18.5" x2="16" y2="18.5"></line>
   </svg>`;
 
   // -------------------------------------------------------------------
@@ -168,7 +170,12 @@
   // -------------------------------------------------------------------
   function defaultSeed() {
     return {
-      projectName,
+      // Project identity — shown split into two boxes ("Name" @ "Location")
+      // plus a separate Unit Number box, then combined for display as
+      // "Queenswoodz @ Bukit Jalil (B-22-12)".
+      projectNamePart: projectName,
+      projectLocationPart: initLocation,
+      unitNumber: initUnitNumber,
       price: initPrice,
       unitSizeSqft: initSize,
       loanMarginPct: initLtv,
@@ -268,11 +275,19 @@
       const rentalPerYear = CALC.round2(state.monthlyRental * 12);
       const rentalRoiPct = CALC.calcRentalRoiPct(rentalPerYear, finalNettPrice);
 
+      // ---- Combined project identity for display, e.g.
+      // "Queenswoodz @ Bukit Jalil (B-22-12)"
+      const projectDisplayName =
+        (state.projectNamePart || '') +
+        (state.projectLocationPart ? ' @ ' + state.projectLocationPart : '') +
+        (state.unitNumber ? ' (' + state.unitNumber + ')' : '');
+
       D = {
         loanAmount, downPaymentPct, downPayment, monthlyInstalment, totalRepayment, totalInterest,
         rebateAmount, subsidyTotal, finalNettPrice, costSaving,
         existingCommitmentsTotal, dsr, eligibility,
-        maintenanceFeeMonthly, expectedMonthlyReturn, rentalPerYear, rentalRoiPct
+        maintenanceFeeMonthly, expectedMonthlyReturn, rentalPerYear, rentalRoiPct,
+        projectDisplayName
       };
     }
 
@@ -285,6 +300,19 @@
       return `
       <section class="card" id="sec-1-${id}">
         ${sectionHeader('01', 'Property &amp; Financing', 'Type in the property price and loan margin — the loan amount, down payment and monthly instalment all update automatically below.')}
+
+        <div class="field">
+          <div class="field-label"><span>Project's Name &amp; Location</span></div>
+          <div style="display:flex; gap:8px; align-items:stretch;">
+            <input type="text" style="flex:1; min-width:0;" data-bind-text="projectNamePart" value="${esc(state.projectNamePart)}" placeholder="e.g. Queenswoodz">
+            <span style="flex:none; display:flex; align-items:center; font-weight:700; color:var(--ink-soft); font-size:17px;">@</span>
+            <input type="text" style="flex:1; min-width:0;" data-bind-text="projectLocationPart" value="${esc(state.projectLocationPart)}" placeholder="e.g. Bukit Jalil">
+          </div>
+        </div>
+        <div class="field">
+          <div class="field-label"><span>Unit Number</span></div>
+          <input type="text" data-bind-text="unitNumber" value="${esc(state.unitNumber)}" placeholder="e.g. B-22-12 or 30-3A">
+        </div>
 
         <div class="section-grid">
           ${fieldEditable({label:'Property Purchase Price', tip:null, value:state.price, onInput:'price', min:100000, max:5000000, step:5000, prefix:'RM'})}
@@ -452,7 +480,7 @@
         <div class="summary-top">
           <div>
             <div class="summary-eyebrow">Financial Snapshot</div>
-            <div class="summary-project">${state.projectName}</div>
+            <div class="summary-project">${esc(D.projectDisplayName)}</div>
           </div>
           <div class="summary-actions">
             <div class="status-pill ${posClass}">${posLabel}</div>
