@@ -412,13 +412,15 @@
         ${toggle({label:'Disbursement &amp; Admin Fees absorbed by developer', checked:state.miscAbsorbed, onBind:'miscAbsorbed'})}
 
         <div class="field" style="margin-top:14px;">
-          <div class="field-label"><span>Renovation Package (expected value of free renovation / furnishing)</span></div>
-          <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-            <div class="input-affix" style="flex:1; min-width:140px;">
-              <span class="affix-pre">RM</span>
-              <input type="text" inputmode="decimal" class="affix-input" data-bind-manual="renovationPackageRm" data-min="0" data-max="150000" value="${groupNum(state.renovationPackageRm)}">
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+            <div class="field-label" style="margin:0; flex:1 1 220px;"><span>Renovation Package (expected value of free renovation / furnishing)</span></div>
+            <div style="display:flex; align-items:center; gap:10px; flex:0 1 auto; flex-wrap:wrap; justify-content:flex-end;">
+              <div class="input-affix" style="flex:none; width:160px;">
+                <span class="affix-pre">RM</span>
+                <input type="text" inputmode="decimal" class="affix-input" data-bind-manual="renovationPackageRm" data-min="0" data-max="150000" value="${groupNum(state.renovationPackageRm)}">
+              </div>
+              <span style="flex:none; font-weight:700; white-space:nowrap; ${state.renovationPackageRm > 0 ? 'color:var(--value-green);' : 'color:var(--ink-faint);'}">${state.renovationPackageRm > 0 ? 'Saved – ' + rm(state.renovationPackageRm) : 'RM 0'}</span>
             </div>
-            <span style="flex:none; font-weight:700; ${state.renovationPackageRm > 0 ? 'color:var(--value-green);' : 'color:var(--ink-faint);'}">${state.renovationPackageRm > 0 ? 'Saved – ' + rm(state.renovationPackageRm) : 'RM 0'}</span>
           </div>
         </div>
 
