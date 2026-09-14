@@ -23,7 +23,7 @@ window.CALC_CONFIG = {
     // Header line 1 (topbar, next to the logo icon)
     agentTitle: "Tony Hoo | Your Neighbourhood Home Advisor",
     // Header line 2
-    agentTagline: "IQI Realty · Klang Valley New Launches",
+    agentTagline: "IQI Realty · Klang Valley New Launches · @tonyhoo_97",
     handle: "@tonyhoo_97",
     // Black & gold palette — matches the KL Project Atlas (KLPC) branding used
     // elsewhere in this project. Times New Roman serif throughout for the
