@@ -410,7 +410,7 @@
         <h3 class="mini-head">Cost absorption toggles (edit to match this project)</h3>
         ${toggle({label:'Legal Fee (SPA) absorbed by developer', checked:state.legalFeeSpaAbsorbed, onBind:'legalFeeSpaAbsorbed'})}
         ${toggle({label:'Legal Fee (Loan Agreement) absorbed by developer', checked:state.legalFeeLoanAbsorbed, onBind:'legalFeeLoanAbsorbed'})}
-        ${toggle({label:'Stamp Duty (Loan Agreement) absorbed by developer', checked:state.stampDutyLoanAbsorbed, onBind:'stampDutyLoanAbsorbed', sub:TIP.absorption})}
+        ${toggle({label:'Stamp Duty (Loan Agreement) absorbed by developer', checked:state.stampDutyLoanAbsorbed, onBind:'stampDutyLoanAbsorbed'})}
         ${toggle({label:'Disbursement &amp; Admin Fees absorbed by developer', checked:state.miscAbsorbed, onBind:'miscAbsorbed'})}
 
         <div class="field" style="margin-top:14px;">
@@ -439,7 +439,7 @@
       const posLabel = D.dsr.withinRange ? 'Within Indicative Range' : 'Above Indicative Range';
       return `
       <section class="card" id="sec-3-${id}">
-        ${sectionHeader('03', 'DSR (Debt-Service-Ratio)', 'Can you reasonably afford this? Your new instalment is carried over automatically from Section 01 — you never re-enter it.')}
+        ${sectionHeader('03', 'DSR (Debt-Service-Ratio)', 'Can you reasonably afford this? Your new instalment is carried over automatically from Section 01.')}
 
         <div class="section-grid">
           ${fieldEditable({label:'Nett Monthly Income', tip:null, value:state.income, onInput:'income', min:2000, max:100000, step:500, prefix:'RM'})}
