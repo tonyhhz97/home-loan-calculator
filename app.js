@@ -416,12 +416,9 @@
         <div class="field" style="margin-top:14px;">
           <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
             <div class="field-label" style="margin:0; flex:1 1 220px;"><span>Renovation Package (expected value of free renovation / furnishing)</span></div>
-            <div style="display:flex; align-items:center; gap:10px; flex:0 1 auto; flex-wrap:wrap; justify-content:flex-end;">
-              <div class="input-affix" style="flex:none; width:160px;">
-                <span class="affix-pre">RM</span>
-                <input type="text" inputmode="decimal" class="affix-input" data-bind-manual="renovationPackageRm" data-min="0" data-max="150000" value="${groupNum(state.renovationPackageRm)}">
-              </div>
-              <span style="flex:none; font-weight:700; white-space:nowrap; ${state.renovationPackageRm > 0 ? 'color:var(--value-green);' : 'color:var(--ink-faint);'}">${state.renovationPackageRm > 0 ? 'Saved – ' + rm(state.renovationPackageRm) : 'RM 0'}</span>
+            <div class="input-affix" style="flex:1 1 240px; max-width:280px;">
+              <span class="affix-pre">RM</span>
+              <input type="text" inputmode="decimal" class="affix-input" data-bind-manual="renovationPackageRm" data-min="0" data-max="150000" value="${groupNum(state.renovationPackageRm)}">
             </div>
           </div>
         </div>
@@ -483,7 +480,7 @@
       const posLabel = D.dsr.withinRange ? 'Within Indicative DSR Range' : 'Above Indicative DSR Range';
       return `
       <section class="card summary-card" id="sec-4-${id}">
-        ${sectionHeader('04', 'Financial Summary', 'The full picture in one place — screenshot this and bring it to your bank conversation.')}
+        ${sectionHeader('04', 'Financial Summary', 'The full picture in one place.')}
 
         <div class="summary-top">
           <div>
