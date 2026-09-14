@@ -326,7 +326,7 @@
 
         <div class="section-grid">
           ${fieldEditable({label:'Property Purchase Price', tip:null, value:state.price, onInput:'price', min:100000, max:5000000, step:5000, prefix:'RM'})}
-          ${fieldEditable({label:'Loan Margin (Loan-to-Value)', tip:TIP.ltv, value:state.loanMarginPct, onInput:'loanMarginPct', min:50, max:100, step:1, suffix:'%'})}
+          ${fieldEditable({label:'Loan Margin', tip:null, value:state.loanMarginPct, onInput:'loanMarginPct', min:50, max:100, step:1, suffix:'%'})}
         </div>
 
         <div class="chain-result">
@@ -369,7 +369,7 @@
         <div class="divider"></div>
 
         <div class="section-grid">
-          ${fieldEditable({label:'Interest / Lending Rate (p.a.)', tip:null, value:state.interestRatePct, onInput:'interestRatePct', min:2.5, max:6.5, step:0.05, suffix:'%', decimals:2})}
+          ${fieldEditable({label:'Interest Rate', tip:null, value:state.interestRatePct, onInput:'interestRatePct', min:2.5, max:6.5, step:0.05, suffix:'%', decimals:2})}
           ${fieldEditable({label:'Loan Tenure', tip:null, value:state.tenureYears, onInput:'tenureYears', min:5, max:35, step:1, suffix:' years'})}
         </div>
 
@@ -443,7 +443,7 @@
 
         <div class="section-grid">
           ${fieldEditable({label:'Nett Monthly Income', tip:null, value:state.income, onInput:'income', min:2000, max:100000, step:500, prefix:'RM'})}
-          ${fieldEditable({label:'Indicative DSR Limit', tip:TIP.dsr, value:state.dsrThresholdPct, onInput:'dsrThresholdPct', min:40, max:90, step:1, suffix:'%'})}
+          ${fieldEditable({label:'Indicative DSR Limit', tip:null, value:state.dsrThresholdPct, onInput:'dsrThresholdPct', min:40, max:90, step:1, suffix:'%'})}
         </div>
 
         <h3 class="mini-head">Monthly Commitments</h3>

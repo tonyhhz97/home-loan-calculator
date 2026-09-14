@@ -93,7 +93,7 @@ window.CALC_CONFIG = {
      profile differs.
   --------------------------------------------------------------------- */
   assumptions: {
-    buyerMonthlyIncome: 9000,
+    buyerMonthlyIncome: 6000,
     numberOfBorrowers: 1,
     dsrThresholdPct: 70,   // indicative bank DSR ceiling used for the estimate
 
