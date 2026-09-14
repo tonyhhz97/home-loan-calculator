@@ -345,10 +345,7 @@
         </div>
 
         <div class="divider"></div>
-        <div class="mini-head-row">
-          <h3 class="mini-head">Extra Subsidy</h3>
-          <span class="total-tag">Total: ${rm(D.subsidyTotal)}</span>
-        </div>
+        <h3 class="mini-head">Extra Subsidy</h3>
         <div class="subsidy-list">
           ${renderSubsidyRows()}
         </div>
