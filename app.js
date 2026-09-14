@@ -119,10 +119,12 @@
     return `<div class="result-row ${cls}"><span class="k">${k}</span><span class="v">${v}</span></div>`;
   }
 
-  // Same as resultRow, but with the label and value pulled close together
-  // and left-justified, instead of pushed apart edge-to-edge.
+  // Same as resultRow, but meant to sit inside a two-column CSS grid (see
+  // the wrapping .result-block below) instead of a flex row — this keeps
+  // labels in one aligned column and values in a second aligned column,
+  // with a modest, fixed gap between them (no more, no less, on every row).
   function resultRowTight(k, v) {
-    return `<div class="result-row" style="display:flex; justify-content:flex-start; align-items:baseline; gap:14px;"><span class="k" style="flex:none;">${k}</span><span class="v" style="flex:none;">${v}</span></div>`;
+    return `<div class="result-row" style="display:contents;"><span class="k">${k}</span><span class="v">${v}</span></div>`;
   }
 
   function sectionHeader(no, title, sub) {
@@ -401,7 +403,7 @@
       <section class="card" id="sec-2-${id}">
         ${sectionHeader('02', 'Cost Saving Breakdown', "Costs the developer may absorb on your behalf, plus any renovation package — so you can see exactly how much you save.")}
 
-        <div class="result-block">
+        <div class="result-block" style="display:grid; grid-template-columns:max-content max-content; column-gap:26px; row-gap:10px; align-items:baseline;">
           ${cs.items.map(it => resultRowTight(it.label, it.absorbed ? `<span style="color:var(--value-green);">Saved – ${rm(it.amount)}</span>` : `<span style="color:var(--ink-faint); font-weight:600;">Not absorbed</span>`)).join('')}
         </div>
 
