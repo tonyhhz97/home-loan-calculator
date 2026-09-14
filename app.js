@@ -302,16 +302,14 @@
         ${sectionHeader('01', 'Property &amp; Financing', 'Type in the property price and loan margin — the loan amount, down payment and monthly instalment all update automatically below.')}
 
         <div class="field">
-          <div class="field-label"><span>Project's Name &amp; Location</span></div>
-          <div style="display:flex; gap:8px; align-items:stretch;">
-            <input type="text" style="flex:1; min-width:0;" data-bind-text="projectNamePart" value="${esc(state.projectNamePart)}" placeholder="e.g. Queenswoodz">
-            <span style="flex:none; display:flex; align-items:center; font-weight:700; color:var(--ink-soft); font-size:17px;">@</span>
-            <input type="text" style="flex:1; min-width:0;" data-bind-text="projectLocationPart" value="${esc(state.projectLocationPart)}" placeholder="e.g. Bukit Jalil">
+          <div class="field-label"><span>Project's Name &amp; Location, Unit Number</span></div>
+          <div style="display:flex; gap:4px; align-items:stretch; flex-wrap:wrap;">
+            <input type="text" style="flex:1.3; min-width:90px;" data-bind-text="projectNamePart" value="${esc(state.projectNamePart)}" placeholder="e.g. Queenswoodz">
+            <span style="flex:none; display:flex; align-items:center; font-weight:700; color:var(--ink-soft); font-size:15px; padding:0 2px;">@</span>
+            <input type="text" style="flex:1.3; min-width:90px;" data-bind-text="projectLocationPart" value="${esc(state.projectLocationPart)}" placeholder="e.g. Bukit Jalil">
+            <span style="flex:none; display:flex; align-items:center; color:var(--ink-soft); font-size:15px; padding:0 2px;">·</span>
+            <input type="text" style="flex:1; min-width:80px;" data-bind-text="unitNumber" value="${esc(state.unitNumber)}" placeholder="e.g. B-22-12">
           </div>
-        </div>
-        <div class="field">
-          <div class="field-label"><span>Unit Number</span></div>
-          <input type="text" data-bind-text="unitNumber" value="${esc(state.unitNumber)}" placeholder="e.g. B-22-12 or 30-3A">
         </div>
 
         <div class="section-grid">
