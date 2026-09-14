@@ -119,7 +119,11 @@
     return `<div class="result-row ${cls}"><span class="k">${k}</span><span class="v">${v}</span></div>`;
   }
 
-  function arrowDown() { return `<div class="flow-arrow">↓</div>`; }
+  // Same as resultRow, but with the label and value pulled close together
+  // and left-justified, instead of pushed apart edge-to-edge.
+  function resultRowTight(k, v) {
+    return `<div class="result-row" style="display:flex; justify-content:flex-start; align-items:baseline; gap:14px;"><span class="k" style="flex:none;">${k}</span><span class="v" style="flex:none;">${v}</span></div>`;
+  }
 
   function sectionHeader(no, title, sub) {
     return `<div class="section-header"><div class="section-no">${no}</div><div><h2>${title}</h2>${sub ? `<div class="sub">${sub}</div>` : ''}</div></div>`;
@@ -302,13 +306,19 @@
         ${sectionHeader('01', 'Property &amp; Financing', 'Type in the property price and loan margin — the loan amount, down payment and monthly instalment all update automatically below.')}
 
         <div class="field">
-          <div class="field-label"><span>Project's Name &amp; Location, Unit Number</span></div>
-          <div style="display:flex; gap:4px; align-items:stretch; flex-wrap:wrap;">
-            <input type="text" style="flex:1.3; min-width:90px;" data-bind-text="projectNamePart" value="${esc(state.projectNamePart)}" placeholder="e.g. Queenswoodz">
-            <span style="flex:none; display:flex; align-items:center; font-weight:700; color:var(--ink-soft); font-size:15px; padding:0 2px;">@</span>
-            <input type="text" style="flex:1.3; min-width:90px;" data-bind-text="projectLocationPart" value="${esc(state.projectLocationPart)}" placeholder="e.g. Bukit Jalil">
-            <span style="flex:none; display:flex; align-items:center; color:var(--ink-soft); font-size:15px; padding:0 2px;">·</span>
-            <input type="text" style="flex:1; min-width:80px;" data-bind-text="unitNumber" value="${esc(state.unitNumber)}" placeholder="e.g. B-22-12">
+          <div style="display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap;">
+            <div style="flex:2.4; min-width:180px;">
+              <div class="field-label"><span>Project's Name &amp; Location</span></div>
+              <div style="display:flex; gap:4px; align-items:stretch;">
+                <input type="text" style="flex:1.3; min-width:80px; text-align:center;" data-bind-text="projectNamePart" value="${esc(state.projectNamePart)}" placeholder="e.g. Queenswoodz">
+                <span style="flex:none; display:flex; align-items:center; font-weight:700; color:var(--ink-soft); font-size:15px; padding:0 2px;">@</span>
+                <input type="text" style="flex:1.3; min-width:80px; text-align:center;" data-bind-text="projectLocationPart" value="${esc(state.projectLocationPart)}" placeholder="e.g. Bukit Jalil">
+              </div>
+            </div>
+            <div style="flex:1; min-width:100px;">
+              <div class="field-label"><span>Unit Number</span></div>
+              <input type="text" style="width:100%; text-align:center;" data-bind-text="unitNumber" value="${esc(state.unitNumber)}" placeholder="e.g. B-22-12">
+            </div>
           </div>
         </div>
 
@@ -319,12 +329,11 @@
 
         <div class="chain-result">
           <div class="chain-item"><div class="l">Property Price</div><div class="v">${rm(state.price)}</div></div>
-          ${arrowDown()}
           <div class="chain-item"><div class="l">Estimated Loan Amount (${state.loanMarginPct}%)</div><div class="v orange">${rm(D.loanAmount)}</div></div>
         </div>
 
         <div class="section-grid" style="margin-top:2px;">
-          ${fieldEditable({label:"Developer's Rebate", tip:'Key in the % — the RM amount is calculated automatically off the property price.', value:state.rebatePct, onInput:'rebatePct', min:0, max:30, step:0.5, suffix:'%'})}
+          ${fieldEditable({label:"Developer's Rebate", tip:null, value:state.rebatePct, onInput:'rebatePct', min:0, max:30, step:0.5, suffix:'%'})}
           <div class="field">
             <div class="field-label"><span>Layout &amp; Size</span></div>
             <div class="layout-size-row">
@@ -338,7 +347,6 @@
         </div>
         <div class="chain-result" style="margin-top:0;">
           <div class="chain-item"><div class="l">Developer's Rebate (${state.rebatePct}%)</div><div class="v">${rm(D.rebateAmount)}</div></div>
-          ${arrowDown()}
           <div class="chain-item"><div class="l">Estimated Down Payment (${D.downPaymentPct}%)</div><div class="v orange">${rm(D.downPayment)}</div></div>
         </div>
 
@@ -351,11 +359,8 @@
 
         <div class="chain-result" style="margin-top:14px;">
           <div class="chain-item"><div class="l">SPA Price</div><div class="v">${rm(state.price)}</div></div>
-          ${arrowDown()}
           <div class="chain-item"><div class="l">– Developer's Rebate (${state.rebatePct}%)</div><div class="v">${rm(D.rebateAmount)}</div></div>
-          ${arrowDown()}
           <div class="chain-item"><div class="l">– Extra Subsidy (total)</div><div class="v">${rm(D.subsidyTotal)}</div></div>
-          ${arrowDown()}
           <div class="chain-item highlight"><div class="l">Final Nett Price</div><div class="v orange big">${rm(D.finalNettPrice)}</div></div>
         </div>
 
@@ -368,7 +373,6 @@
 
         <div class="chain-result">
           <div class="chain-item"><div class="l">Loan Amount</div><div class="v">${rm(D.loanAmount)}</div></div>
-          ${arrowDown()}
           <div class="chain-item highlight"><div class="l">Estimated Monthly Instalment</div><div class="v green big">${rm(D.monthlyInstalment)}</div></div>
         </div>
 
@@ -382,7 +386,7 @@
           <input type="text" class="subsidy-label-input" placeholder="e.g. Cashback / Free MOT" data-subsidy-label="${i}" value="${esc(s.label)}">
           <div class="input-affix">
             <span class="affix-pre">RM</span>
-            <input type="text" inputmode="decimal" class="affix-input" placeholder="0 or N/A" data-subsidy-amount="${i}" value="${esc(s.raw)}">
+            <input type="text" inputmode="decimal" class="affix-input" style="text-align:center;" placeholder="0 or N/A" data-subsidy-amount="${i}" value="${esc(s.raw)}">
           </div>
           <button type="button" class="subsidy-remove-btn" data-subsidy-remove="${i}" title="Remove">&times;</button>
         </div>`).join('');
@@ -398,8 +402,7 @@
         ${sectionHeader('02', 'Cost Saving Breakdown', "Costs the developer may absorb on your behalf, plus any renovation package — so you can see exactly how much you save.")}
 
         <div class="result-block">
-          ${cs.items.map(it => resultRow(it.label, it.absorbed ? `<span style="color:var(--value-green);">Saved – ${rm(it.amount)}</span>` : `<span style="color:var(--ink-faint); font-weight:600;">Not absorbed</span>`)).join('')}
-          ${resultRow('Renovation Package', state.renovationPackageRm > 0 ? `<span style="color:var(--value-green);">Saved – ${rm(state.renovationPackageRm)}</span>` : `<span style="color:var(--ink-faint); font-weight:600;">RM 0</span>`)}
+          ${cs.items.map(it => resultRowTight(it.label, it.absorbed ? `<span style="color:var(--value-green);">Saved – ${rm(it.amount)}</span>` : `<span style="color:var(--ink-faint); font-weight:600;">Not absorbed</span>`)).join('')}
         </div>
 
         <h3 class="mini-head">Cost absorption toggles (edit to match this project)</h3>
@@ -408,8 +411,15 @@
         ${toggle({label:'Stamp Duty (Loan Agreement) absorbed by developer', checked:state.stampDutyLoanAbsorbed, onBind:'stampDutyLoanAbsorbed', sub:TIP.absorption})}
         ${toggle({label:'Disbursement &amp; Admin Fees absorbed by developer', checked:state.miscAbsorbed, onBind:'miscAbsorbed'})}
 
-        <div class="section-grid" style="margin-top:14px;">
-          ${fieldEditable({label:'Renovation Package (expected value of free renovation / furnishing)', tip:null, value:state.renovationPackageRm, onInput:'renovationPackageRm', min:0, max:150000, step:500, prefix:'RM'})}
+        <div class="field" style="margin-top:14px;">
+          <div class="field-label"><span>Renovation Package (expected value of free renovation / furnishing)</span></div>
+          <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+            <div class="input-affix" style="flex:1; min-width:140px;">
+              <span class="affix-pre">RM</span>
+              <input type="text" inputmode="decimal" class="affix-input" data-bind-manual="renovationPackageRm" data-min="0" data-max="150000" value="${groupNum(state.renovationPackageRm)}">
+            </div>
+            <span style="flex:none; font-weight:700; ${state.renovationPackageRm > 0 ? 'color:var(--value-green);' : 'color:var(--ink-faint);'}">${state.renovationPackageRm > 0 ? 'Saved – ' + rm(state.renovationPackageRm) : 'RM 0'}</span>
+          </div>
         </div>
 
         <div class="chain-result" style="margin-top:4px;">
@@ -447,7 +457,6 @@
         <div class="chain-result">
           <div class="chain-item"><div class="l">Existing Commitments (total)</div><div class="v">${rm(D.existingCommitmentsTotal)}</div></div>
           <div class="chain-item"><div class="l">+ New Property Estimated Instalment (from Section 01)</div><div class="v">${rm(D.monthlyInstalment)}</div></div>
-          ${arrowDown()}
           <div class="chain-item highlight"><div class="l">Total Monthly Debt Commitments</div><div class="v orange big">${rm(D.dsr.totalMonthlyCommitments)}</div></div>
         </div>
 
@@ -526,7 +535,6 @@
           <div class="chain-item"><div class="l">Expected Monthly Rental</div><div class="v">${rm(state.monthlyRental)}</div></div>
           <div class="chain-item"><div class="l">– Monthly Instalment</div><div class="v">${rm(D.monthlyInstalment)}</div></div>
           <div class="chain-item"><div class="l">– Maintenance Fee + Sinking Fund</div><div class="v">${rm(D.maintenanceFeeMonthly)}</div></div>
-          ${arrowDown()}
           <div class="chain-item highlight"><div class="l">Expected Monthly Return</div><div class="v ${D.expectedMonthlyReturn>=0?'green':'orange'} big">${signedRm(D.expectedMonthlyReturn)}</div></div>
         </div>
 
