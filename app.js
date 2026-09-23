@@ -98,7 +98,11 @@
   // Every numeric input on the page is manual entry only (no sliders) — type
   // a value, it commits on blur/Enter, and every dependent number downstream
   // re-renders automatically.
-  function fieldEditable({ label, tip, value, onInput, min, max, step, prefix = '', suffix = '', decimals = 0 }) {
+  // `readOnly: true` renders a greyed-out, non-editable box instead (used for
+  // Loan Tenure once it's being driven automatically by the DSR Calculation
+  // page's age input — the buyer can still see it, just not type into it here).
+  // `note` adds a small line underneath explaining why.
+  function fieldEditable({ label, tip, value, onInput, min, max, step, prefix = '', suffix = '', decimals = 0, readOnly = false, note = '' }) {
     const tipHtml = tip ? `<span class="tip" data-tip="${tip.replace(/"/g,'&quot;')}">?</span>` : '';
     const shownValue = groupNum(value, decimals);
     return `
@@ -106,9 +110,10 @@
         <div class="field-label"><span>${label}${tipHtml}</span></div>
         <div class="input-affix">
           ${prefix ? `<span class="affix-pre">${prefix}</span>` : ''}
-          <input type="text" inputmode="decimal" class="affix-input" data-bind-manual="${onInput}" data-min="${min}" data-max="${max}" value="${shownValue}">
+          <input type="text" inputmode="decimal" class="affix-input" ${readOnly ? `readonly style="background:var(--border); color:var(--ink-soft); cursor:not-allowed;"` : `data-bind-manual="${onInput}" data-min="${min}" data-max="${max}"`} value="${shownValue}">
           ${suffix ? `<span class="affix-suf">${suffix}</span>` : ''}
         </div>
+        ${note ? `<div class="t-sub" style="margin-top:6px;">${note}</div>` : ''}
       </div>`;
   }
 
@@ -315,11 +320,19 @@
     let D = {};
 
     function recalc() {
+      // ---- Loan Tenure — same hand-off pattern as DSR income: if the buyer
+      // has gone into DSR Calculation and filled in their age, that page's own
+      // tenure estimate (35 years, or years to age 70, whichever is shorter)
+      // takes over here automatically and the field becomes read-only. Until
+      // then, this stays a normal manual field the buyer can type into.
+      const tenureFromDsr = !!(dsrSummary && dsrSummary.eligibility && dsrSummary.eligibility.tenureYears);
+      const tenureYears = tenureFromDsr ? dsrSummary.eligibility.tenureYears : state.tenureYears;
+
       const loanAmount = CALC.round2(state.price * (state.loanMarginPct / 100));
       const downPaymentPct = 100 - state.loanMarginPct;
       const downPayment = CALC.round2(state.price - loanAmount);
-      const monthlyInstalment = CALC.calcMonthlyInstalment(loanAmount, state.interestRatePct, state.tenureYears);
-      const totalRepayment = CALC.calcTotalRepayment(monthlyInstalment, state.tenureYears);
+      const monthlyInstalment = CALC.calcMonthlyInstalment(loanAmount, state.interestRatePct, tenureYears);
+      const totalRepayment = CALC.calcTotalRepayment(monthlyInstalment, tenureYears);
       const totalInterest = CALC.calcTotalInterest(totalRepayment, loanAmount);
 
       // ---- Rebate (%) + Extra Subsidy → Final Nett Price
@@ -357,7 +370,7 @@
         monthlyIncome: dsrIncome, monthlyCommitments: existingCommitmentsTotal,
         numberOfBorrowers: (dsrSummary && dsrSummary.jointApplicant) ? 2 : state.borrowers,
         dsrThresholdPct,
-        annualRatePct: state.interestRatePct, tenureYears: state.tenureYears
+        annualRatePct: state.interestRatePct, tenureYears
       });
 
       // ---- Rental ROI (Section 05) — deliberately simple: rental income
@@ -380,7 +393,7 @@
         rebateAmount, subsidyTotal, finalNettPrice, costSaving,
         existingCommitmentsTotal, dsr, eligibility, dsrThresholdPct, hasDsrIncome,
         maintenanceFeeMonthly, expectedMonthlyReturn, rentalPerYear, rentalRoiPct,
-        projectDisplayName
+        projectDisplayName, tenureYears, tenureFromDsr
       };
     }
 
@@ -457,7 +470,9 @@
 
         <div class="section-grid">
           ${fieldEditable({label:'Interest Rate', tip:null, value:state.interestRatePct, onInput:'interestRatePct', min:2.5, max:6.5, step:0.05, suffix:'%', decimals:2})}
-          ${fieldEditable({label:'Loan Tenure', tip:null, value:state.tenureYears, onInput:'tenureYears', min:5, max:35, step:1, suffix:' years'})}
+          ${D.tenureFromDsr
+            ? fieldEditable({label:'Loan Tenure', tip:null, value:D.tenureYears, suffix:' years', readOnly:true, note:"Based on your age from the DSR Calculation page — go back there to change it."})
+            : fieldEditable({label:'Loan Tenure', tip:null, value:state.tenureYears, onInput:'tenureYears', min:5, max:35, step:1, suffix:' years'})}
         </div>
 
         <div class="chain-result">
@@ -598,7 +613,7 @@
           <div class="summary-item"><div class="label">Monthly Instalment</div><div class="value green">${rm(D.monthlyInstalment)}</div></div>
           <div class="summary-item"><div class="label">Size &amp; Layout</div><div class="value">${groupNum(state.unitSizeSqft)} SFT (${esc(state.layout)})</div></div>
           <div class="summary-item"><div class="label">Interest Rate</div><div class="value">${state.interestRatePct.toFixed(2)}%</div></div>
-          <div class="summary-item"><div class="label">Loan Tenure</div><div class="value">${state.tenureYears} years</div></div>
+          <div class="summary-item"><div class="label">Loan Tenure</div><div class="value">${D.tenureYears} years</div></div>
           <div class="summary-item"><div class="label">Extra Subsidy</div><div class="value green">${rm(D.subsidyTotal)}</div></div>
         </div>
 
