@@ -22,6 +22,20 @@
     }
     .dsr-pill:hover{border-color:var(--accent); color:var(--accent-dark);}
     .dsr-pill.active{background:var(--accent); color:#fff; border-color:var(--accent);}
+    /* One removable card per commitment entry (a house loan, a car loan, a
+       credit card, ...) — lets a buyer add as many as they actually have. */
+    .dsr-entry{
+      position:relative; border:1px solid var(--border); border-radius:var(--radius-sm);
+      padding:16px 46px 16px 16px; margin-top:12px; background:var(--bg);
+    }
+    .dsr-entry:first-of-type{margin-top:14px;}
+    .dsr-entry-remove{
+      position:absolute; top:10px; right:10px; width:28px; height:28px; border-radius:50%;
+      border:1px solid var(--border); background:var(--surface); color:var(--ink-soft);
+      font-size:17px; line-height:1; cursor:pointer; font-family:var(--font-family);
+    }
+    .dsr-entry-remove:hover{background:var(--bad-tint); color:var(--bad); border-color:var(--bad);}
+    .dsr-empty-note{color:var(--ink-faint); font-size:16px; font-style:italic; margin-top:2px;}
   </style>
 </head>
 <body>
