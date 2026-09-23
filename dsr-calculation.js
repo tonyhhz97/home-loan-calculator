@@ -85,6 +85,23 @@
     cc: () => ({ mode: 'clear', outstanding: 0, installmentAmount: 0, applicant: 'main' }),
   };
 
+  // Section 08 — optional supporting documents (financial assets a buyer can
+  // show the bank alongside income, which can help loan approval odds and
+  // the rate offered). Each is a simple tick + optional amount; the amount
+  // is never required.
+  const SUPPORTING_DOC_ITEMS = [
+    { key: 'fixedDeposit', label: 'Fixed Deposit' },
+    { key: 'stocksBonds', label: 'Stocks & Bonds' },
+    { key: 'unitTrust', label: 'Unit Trust' },
+    { key: 'moneyMarket', label: 'Money Market Funds' },
+    { key: 'others', label: 'Others' },
+  ];
+  function defaultSupportingDocs() {
+    const docs = {};
+    SUPPORTING_DOC_ITEMS.forEach(it => { docs[it.key] = { checked: false, amount: 0 }; });
+    return docs;
+  }
+
   const state = {
     jointApplicant: false,
     houseLoans: [],
@@ -99,11 +116,13 @@
     // Which applicant's entries are shown/added-to right now, per category —
     // only relevant once Joint Applicant is ticked.
     activeTab: { house: 'main', car: 'main', ptptn: 'main', personal: 'main', cc: 'main' },
+    supportingDocs: defaultSupportingDocs(),
   };
   {
     const saved = loadSaved();
     if (saved) Object.assign(state, saved);
     if (!state.activeTab) state.activeTab = { house: 'main', car: 'main', ptptn: 'main', personal: 'main', cc: 'main' };
+    if (!state.supportingDocs) state.supportingDocs = defaultSupportingDocs();
   }
   let D = {};
 
@@ -188,6 +207,14 @@
   }
   function setActiveTab(cat, applicant) {
     state.activeTab[cat] = applicant;
+    recalcAndRender();
+  }
+  function setDocChecked(key, checked) {
+    if (state.supportingDocs[key]) state.supportingDocs[key].checked = checked;
+    recalcAndRender();
+  }
+  function setDocAmount(key, val) {
+    if (state.supportingDocs[key]) state.supportingDocs[key].amount = val;
     recalcAndRender();
   }
   function recalcAndRender() { recalc(); render(); saveState(); }
@@ -287,6 +314,19 @@
         <div class="input-affix">
           <span class="affix-pre">RM</span>
           <input type="text" inputmode="decimal" class="affix-input" data-entry-field="${cat}:${index}:${field}" data-min="0" data-max="${max}" placeholder="${placeholder}" value="${groupNum(value)}">
+        </div>
+      </div>`;
+  }
+
+  // Amount field for a Section 08 supporting document — always optional,
+  // so the placeholder says so and a blank/zero entry is never a problem.
+  function moneyFieldDoc(label, key, value) {
+    return `
+      <div class="field">
+        <div class="field-label"><span>${label}</span></div>
+        <div class="input-affix">
+          <span class="affix-pre">RM</span>
+          <input type="text" inputmode="decimal" class="affix-input" data-doc-field="${key}" data-min="0" data-max="10000000" placeholder="0 (optional)" value="${groupNum(value)}">
         </div>
       </div>`;
   }
@@ -553,8 +593,54 @@
         ` : `
           <div class="dsr-callout" style="margin-top:14px;">Fill in your Nett Income and Age above (Section 06) to see your healthy DSR range and estimated maximum property loan.</div>
         `}
+      </section>`;
+  }
 
-        <a href="${buildWhatsAppLink()}" target="_blank" rel="noopener" class="exitplan-btn active" style="display:block; text-align:center; text-decoration:none; margin-top:16px;">Send My Details to Tony (For Projects Comparison)</a>
+  // -------------------------------------------------------------------
+  // SECTION 08 — Supporting Documents (optional)
+  // -------------------------------------------------------------------
+  function renderSupportingDocsSection() {
+    return `
+      <section class="card" id="sec-dsr-8">
+        ${sectionHeader('08', 'Strengthen Your Loan Approval & Interest Rate',
+          'Showing the bank extra financial standing beyond your salary can help your approval odds and may support a better interest rate offer.')}
+
+        ${calloutBox(
+          'Fixed deposits, investments and other liquid assets reassure the bank of your financial strength on top of income alone. ' +
+          'Tick anything you hold — the amount is completely optional, a tick alone already gives Tony useful context to work with.'
+        )}
+
+        <div class="field-label" style="margin-top:12px;"><span>Supporting Documents</span></div>
+        <div style="margin-top:8px;">
+          ${SUPPORTING_DOC_ITEMS.map(it => renderSupportingDocRow(it.key, it.label)).join('')}
+        </div>
+      </section>`;
+  }
+
+  function renderSupportingDocRow(key, label) {
+    const doc = state.supportingDocs[key];
+    return `
+      <div class="dsr-entry">
+        <label style="display:flex; align-items:center; gap:12px; cursor:pointer;">
+          <input type="checkbox" data-doc-toggle="${key}" ${doc.checked ? 'checked' : ''} style="width:20px; height:20px; accent-color:var(--accent); flex:none; cursor:pointer;">
+          <span style="font-size:16.5px; font-weight:700; flex:1;">${label}</span>
+        </label>
+        ${doc.checked ? `
+          <div class="section-grid" style="margin-top:12px;">
+            ${moneyFieldDoc('Amount (Optional)', key, doc.amount)}
+          </div>
+        ` : ''}
+      </div>`;
+  }
+
+  // -------------------------------------------------------------------
+  // Final CTA — WhatsApp handoff + carry-over link (back into the main
+  // calculator) + disclaimer.
+  // -------------------------------------------------------------------
+  function renderCtaSection() {
+    return `
+      <section class="card" id="sec-dsr-cta">
+        <a href="${buildWhatsAppLink()}" target="_blank" rel="noopener" class="exitplan-btn active" style="display:block; text-align:center; text-decoration:none;">Send My Details to Tony (For Projects Comparison)</a>
         <a href="index.html?${buildCarryOverParams().toString()}" style="display:block; text-align:center; margin-top:10px; font-size:15.5px; color:var(--ink-soft);">or bring these figures back into the Calculator &rarr;</a>
 
         <div class="disclaimer" style="margin-top:16px;">Disclaimer: Estimate only, for planning purposes. The healthy DSR ranges, maximum loan tenure (assumes banks lend up to age 70) and maximum loan shown above are general guidelines based on nett income and age, not a bank policy. Actual DSR calculation method, limit, tenure and loan eligibility — and which commitments are included — are determined solely by the bank based on your CTOS/CCRIS credit report, product type and internal policies. Please confirm with Tony or your banker before relying on this breakdown.</div>
@@ -607,6 +693,15 @@
     } else {
       lines.push("I haven't filled in my income yet — can you help me work out my eligibility?");
     }
+    const checkedDocs = SUPPORTING_DOC_ITEMS.filter(it => state.supportingDocs[it.key].checked);
+    if (checkedDocs.length) {
+      lines.push('');
+      lines.push('*Supporting Documents*');
+      checkedDocs.forEach(it => {
+        const amount = state.supportingDocs[it.key].amount;
+        lines.push(`${it.label}${amount > 0 ? ' = ' + rm(amount) : ''}`);
+      });
+    }
     return lines.join('\n');
   }
 
@@ -645,6 +740,8 @@
           ${renderCreditCardSection()}
           ${renderIncomeAgeSection()}
           ${renderSummarySection()}
+          ${renderSupportingDocsSection()}
+          ${renderCtaSection()}
         </div>
       </div>
 
@@ -668,6 +765,24 @@
         const [cat, applicant] = el.getAttribute('data-tab-switch').split(':');
         setActiveTab(cat, applicant);
       });
+    });
+
+    // Section 08 — Supporting Documents (tick + optional amount)
+    rootEl.querySelectorAll('[data-doc-toggle]').forEach(el => {
+      el.addEventListener('change', () => setDocChecked(el.getAttribute('data-doc-toggle'), el.checked));
+    });
+    rootEl.querySelectorAll('[data-doc-field]').forEach(el => {
+      const commit = () => {
+        const key = el.getAttribute('data-doc-field');
+        const min = parseFloat(el.getAttribute('data-min'));
+        const max = parseFloat(el.getAttribute('data-max'));
+        let val = parseFloat(cleanNum(el.value));
+        if (isNaN(val)) val = min;
+        val = Math.min(max, Math.max(min, val));
+        setDocAmount(key, val);
+      };
+      el.addEventListener('change', commit);
+      el.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); el.blur(); } });
     });
 
     // Top-level fields (Nett Income, Age, and the joint-applicant equivalents)
