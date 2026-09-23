@@ -12,15 +12,23 @@
    remove any entry. A category with zero entries simply contributes RM 0 —
    there is no separate "no existing loan" toggle to manage.
 
-   JOINT APPLICANT: ticking "Joint Applicant" near the top tags every entry
-   with who it belongs to (Main / Joint Applicant) and adds a second income +
-   age block in Section 06 — the eligibility estimate then uses the combined
-   income of both applicants, and the older applicant's age to cap tenure.
+   JOINT APPLICANT: ticking "Joint Applicant" near the top adds a Main
+   Applicant / Joint Applicant TAB inside every commitment section — the
+   buyer fills in the Main Applicant's loans on one tab, switches to the
+   Joint Applicant tab to fill in the co-applicant's loans separately, and
+   the section's total always adds both together automatically. Section 06
+   also gets a second income + age block — the eligibility estimate uses the
+   combined income of both applicants, and the older applicant's age to cap
+   tenure.
 
    The final CTA sends a plain-text summary of everything filled in
    (income/age, every commitment, and the estimated eligibility) straight to
    Tony's WhatsApp via a wa.me link — this page's purpose is to hand Tony a
    ready-to-act-on lead, not just to bounce the buyer back to the calculator.
+
+   PERSISTENCE: everything typed in is kept in sessionStorage, so navigating
+   away (e.g. "Back to Calculator") and returning restores exactly what was
+   filled in. It only resets when the browser tab is closed.
 
    Deliberately independent of app.js: this page has no comparison mode, no
    multi-instance factory — just one flat state object and a re-render.
@@ -29,6 +37,7 @@
   const CFG = window.CALC_CONFIG;
   const C = CFG.branding.colors;
   const WHATSAPP_NUMBER = '601113207364';
+  const STORAGE_KEY = 'dsrCalc:v1';
 
   // Same brand CSS variables app.js applies — kept identical so this page
   // matches the main calculator exactly even if config.js is re-branded.
@@ -49,8 +58,23 @@
   const round2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
 
   // -------------------------------------------------------------------
+  // Persistence — sessionStorage only (cleared when the tab is closed,
+  // kept across navigating to/from the main calculator or reloading).
+  // -------------------------------------------------------------------
+  function loadSaved() {
+    try {
+      const raw = sessionStorage.getItem(STORAGE_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) { return null; }
+  }
+  function saveState() {
+    try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) { /* storage unavailable — fail silently */ }
+  }
+
+  // -------------------------------------------------------------------
   // State — five commitment categories, each a list of entries, plus the
-  // buyer's (and, if joint, the co-applicant's) nett income and age.
+  // buyer's (and, if joint, the co-applicant's) nett income and age, plus
+  // which applicant's tab is currently active inside each section.
   // -------------------------------------------------------------------
   const CAT_ARRAY = { house: 'houseLoans', car: 'carLoans', ptptn: 'ptptnList', personal: 'personalLoans', cc: 'creditCards' };
   const ENTRY_DEFAULTS = {
@@ -72,7 +96,15 @@
     age: 30,
     nettIncomeJoint: 0,
     ageJoint: 30,
+    // Which applicant's entries are shown/added-to right now, per category —
+    // only relevant once Joint Applicant is ticked.
+    activeTab: { house: 'main', car: 'main', ptptn: 'main', personal: 'main', cc: 'main' },
   };
+  {
+    const saved = loadSaved();
+    if (saved) Object.assign(state, saved);
+    if (!state.activeTab) state.activeTab = { house: 'main', car: 'main', ptptn: 'main', personal: 'main', cc: 'main' };
+  }
   let D = {};
 
   // Healthy indicative DSR range by nett income band — a simple, transparent
@@ -85,12 +117,28 @@
     return { min: 60, max: 60 };
   }
 
+  // How much a single entry contributes toward the monthly commitment total
+  // — shared by recalc() (whole-category totals) and applicantSubtotal()
+  // (per-applicant subtotals shown once Joint Applicant is ticked).
+  function entryContribution(cat, entry) {
+    if (cat === 'house') return entry.status === 'joint' ? round2(entry.instalment / 2) : entry.instalment;
+    if (cat === 'car') return entry.instalment;
+    if (cat === 'ptptn') return entry.payment;
+    if (cat === 'personal') return entry.payment;
+    if (cat === 'cc') return entry.mode === 'installment' ? entry.installmentAmount : 0;
+    return 0;
+  }
+  function applicantSubtotal(cat, applicant) {
+    const arr = state[CAT_ARRAY[cat]];
+    return round2(arr.filter(e => e.applicant === applicant).reduce((sum, e) => sum + entryContribution(cat, e), 0));
+  }
+
   function recalc() {
-    const houseCommitment = round2(state.houseLoans.reduce((sum, e) => sum + (e.status === 'joint' ? e.instalment / 2 : e.instalment), 0));
-    const carCommitment = round2(state.carLoans.reduce((sum, e) => sum + e.instalment, 0));
-    const ptptnCommitment = round2(state.ptptnList.reduce((sum, e) => sum + e.payment, 0));
-    const personalCommitment = round2(state.personalLoans.reduce((sum, e) => sum + e.payment, 0));
-    const ccCommitment = round2(state.creditCards.reduce((sum, e) => sum + (e.mode === 'installment' ? e.installmentAmount : 0), 0));
+    const houseCommitment = round2(state.houseLoans.reduce((sum, e) => sum + entryContribution('house', e), 0));
+    const carCommitment = round2(state.carLoans.reduce((sum, e) => sum + entryContribution('car', e), 0));
+    const ptptnCommitment = round2(state.ptptnList.reduce((sum, e) => sum + entryContribution('ptptn', e), 0));
+    const personalCommitment = round2(state.personalLoans.reduce((sum, e) => sum + entryContribution('personal', e), 0));
+    const ccCommitment = round2(state.creditCards.reduce((sum, e) => sum + entryContribution('cc', e), 0));
     const total = round2(houseCommitment + carCommitment + ptptnCommitment + personalCommitment + ccCommitment);
 
     const combinedIncome = round2(state.nettIncome + (state.jointApplicant ? state.nettIncomeJoint : 0));
@@ -123,7 +171,13 @@
   }
   function addEntry(cat) {
     const arr = state[CAT_ARRAY[cat]];
-    if (arr) arr.push(ENTRY_DEFAULTS[cat]());
+    if (arr) {
+      const entry = ENTRY_DEFAULTS[cat]();
+      // Tag the new entry to whichever applicant tab is currently active,
+      // so it shows up where the buyer is actually looking.
+      if (state.jointApplicant) entry.applicant = state.activeTab[cat];
+      arr.push(entry);
+    }
     recalcAndRender();
   }
   function removeEntry(cat, index) {
@@ -131,7 +185,11 @@
     if (arr) arr.splice(index, 1);
     recalcAndRender();
   }
-  function recalcAndRender() { recalc(); render(); }
+  function setActiveTab(cat, applicant) {
+    state.activeTab[cat] = applicant;
+    recalcAndRender();
+  }
+  function recalcAndRender() { recalc(); render(); saveState(); }
 
   // -------------------------------------------------------------------
   // Small UI builders
@@ -158,8 +216,8 @@
   }
 
   // A pill selector for a single entry field (e.g. this house loan's
-  // ownership status, this card's clear/installment mode, or which
-  // applicant an entry belongs to) — same visual language throughout.
+  // ownership status, this card's clear/installment mode) — same visual
+  // language throughout.
   function pillGroupEntry(cat, index, field, options, current) {
     return `<div class="dsr-pill-group">
       ${options.map(opt => `
@@ -168,18 +226,35 @@
     </div>`;
   }
 
-  // Shown at the top of every entry, but only once Joint Applicant is
-  // ticked — tags that entry as belonging to the main or joint applicant.
-  function applicantPill(cat, index, current) {
+  // Shown at the top of every commitment section, but only once Joint
+  // Applicant is ticked — switches which applicant's entries are visible
+  // and which applicant new entries get tagged to. The section total below
+  // always adds both applicants together, whichever tab is active.
+  function applicantTabSwitcher(cat) {
     if (!state.jointApplicant) return '';
+    const current = state.activeTab[cat];
     return `
-      <div class="field-label"><span>Applicant</span></div>
-      ${pillGroupEntry(cat, index, 'applicant', [
-        { value: 'main', label: 'Main Applicant' },
-        { value: 'joint', label: 'Joint Applicant' },
-      ], current)}
-      <div style="margin-top:12px;"></div>
+      <div class="dsr-pill-group" style="margin-bottom:4px;">
+        <button type="button" class="dsr-pill ${current === 'main' ? 'active' : ''}" data-tab-switch="${cat}:main">Main Applicant</button>
+        <button type="button" class="dsr-pill ${current === 'joint' ? 'active' : ''}" data-tab-switch="${cat}:joint">Joint Applicant</button>
+      </div>
+      <div class="dsr-empty-note" style="margin-bottom:10px; font-style:normal;">Filling in for the <b>${current === 'main' ? 'Main' : 'Joint'} Applicant</b> — switch tabs above to fill in the other applicant's commitments. Both are added together in the total below.</div>
     `;
+  }
+
+  // Per-applicant subtotal rows, shown under the entry list once Joint
+  // Applicant is ticked and there's at least one entry on either side.
+  function applicantSubtotalRows(cat) {
+    if (!state.jointApplicant) return '';
+    const arr = state[CAT_ARRAY[cat]];
+    if (!arr.length) return '';
+    const mainTotal = applicantSubtotal(cat, 'main');
+    const jointTotal = applicantSubtotal(cat, 'joint');
+    return `
+      <div class="result-block" style="margin-top:10px;">
+        ${resultRow('Main Applicant Subtotal', rm(mainTotal))}
+        ${resultRow('Joint Applicant Subtotal', rm(jointTotal))}
+      </div>`;
   }
 
   function moneyField(label, key, value, { placeholder = '0', max = 100000 } = {}) {
@@ -219,18 +294,31 @@
     return `<div class="dsr-callout">${text}</div>`;
   }
 
-  // Renders a category's list of entries (each wrapped in a removable
-  // .dsr-entry card) plus the "+ Add" button underneath.
-  function renderEntryList(cat, entries, renderEntryFields, { addLabel = '+ Add', emptyNote = '' } = {}) {
-    const rows = entries.map((entry, i) => `
+  // Renders one category's currently-visible entries (each wrapped in a
+  // removable .dsr-entry card) plus the "+ Add" button underneath.
+  // `items` is an array of {entry, index, pos} — `index` is the entry's
+  // real position in the underlying full array (used for field/remove
+  // bindings), `pos` is its position within the currently visible list
+  // (used for the "House Loan 1 / 2 / ..." display numbering).
+  function renderEntryList(cat, items, renderEntryFields, { addLabel = '+ Add', emptyNote = '' } = {}) {
+    const rows = items.map(({ entry, index, pos }) => `
       <div class="dsr-entry">
-        <button type="button" class="dsr-entry-remove" data-entry-remove="${cat}:${i}" title="Remove">&times;</button>
-        ${renderEntryFields(entry, i)}
+        <button type="button" class="dsr-entry-remove" data-entry-remove="${cat}:${index}" title="Remove">&times;</button>
+        ${renderEntryFields(entry, index, pos)}
       </div>`).join('');
     return `
-      ${entries.length ? rows : (emptyNote ? `<div class="dsr-empty-note">${emptyNote}</div>` : '')}
-      <button type="button" class="subsidy-add-btn" data-entry-add="${cat}" style="margin-top:${entries.length ? '10px' : '4px'};">${addLabel}</button>
+      ${items.length ? rows : (emptyNote ? `<div class="dsr-empty-note">${emptyNote}</div>` : '')}
+      <button type="button" class="subsidy-add-btn" data-entry-add="${cat}" style="margin-top:${items.length ? '10px' : '4px'};">${addLabel}</button>
     `;
+  }
+
+  // Builds the {entry, index, pos} list for a category, filtered to the
+  // currently active applicant tab (or every entry, when not joint).
+  function visibleEntries(cat) {
+    const arr = state[CAT_ARRAY[cat]];
+    const all = arr.map((entry, index) => ({ entry, index }));
+    const filtered = state.jointApplicant ? all.filter(x => x.entry.applicant === state.activeTab[cat]) : all;
+    return filtered.map((x, pos) => ({ entry: x.entry, index: x.index, pos }));
   }
 
   // Count suffix for the summary box, e.g. "House Loan (x2)" — always shown
@@ -252,7 +340,7 @@
           <span style="font-size:19px; font-weight:700;">Joint Applicant</span>
         </label>
         <div class="dsr-empty-note" style="margin-top:8px; font-style:normal;">
-          Applying together with a co-borrower (spouse, family member, etc.)? Tick this to record both applicants' income, age and commitments separately — the eligibility estimate below will then use your combined income.
+          Applying together with a co-borrower (spouse, family member, etc.)? Tick this to get a Main Applicant / Joint Applicant tab inside every commitment section below — fill each applicant's loans separately, and the totals combine automatically.
         </div>
       </section>`;
   }
@@ -273,20 +361,21 @@
         )}
 
         <div style="margin-top:14px;">
-          ${renderEntryList('house', state.houseLoans, (entry, i) => `
-            ${applicantPill('house', i, entry.applicant)}
-            <div class="field-label"><span>House Loan ${i + 1} — Ownership</span></div>
-            ${pillGroupEntry('house', i, 'status', [
+          ${applicantTabSwitcher('house')}
+          ${renderEntryList('house', visibleEntries('house'), (entry, index, pos) => `
+            <div class="field-label"><span>House Loan ${pos + 1} — Ownership</span></div>
+            ${pillGroupEntry('house', index, 'status', [
               { value: 'own', label: 'Under My Name' },
               { value: 'joint', label: 'Joint Name' },
             ], entry.status)}
             <div class="section-grid" style="margin-top:12px;">
-              ${moneyFieldEntry('Monthly Instalment', 'house', i, 'instalment', entry.instalment)}
+              ${moneyFieldEntry('Monthly Instalment', 'house', index, 'instalment', entry.instalment)}
             </div>
             <div class="chain-result" style="margin-top:4px;">
-              <div class="chain-item highlight"><div class="l">Your Commitment${entry.status === 'joint' ? ' (50% share)' : ''}</div><div class="v orange">${rm(entry.status === 'joint' ? round2(entry.instalment / 2) : entry.instalment)}</div></div>
+              <div class="chain-item highlight"><div class="l">Commitment${entry.status === 'joint' ? ' (50% bank-loan share)' : ''}</div><div class="v orange">${rm(entry.status === 'joint' ? round2(entry.instalment / 2) : entry.instalment)}</div></div>
             </div>
           `, { addLabel: '+ Add House Loan', emptyNote: 'No existing house loan added.' })}
+          ${applicantSubtotalRows('house')}
         </div>
 
         ${state.houseLoans.length ? `
@@ -306,12 +395,13 @@
         )}
 
         <div style="margin-top:14px;">
-          ${renderEntryList('car', state.carLoans, (entry, i) => `
-            ${applicantPill('car', i, entry.applicant)}
+          ${applicantTabSwitcher('car')}
+          ${renderEntryList('car', visibleEntries('car'), (entry, index, pos) => `
             <div class="section-grid">
-              ${moneyFieldEntry(`Car Loan ${i + 1} — Monthly Instalment`, 'car', i, 'instalment', entry.instalment)}
+              ${moneyFieldEntry(`Car Loan ${pos + 1} — Monthly Instalment`, 'car', index, 'instalment', entry.instalment)}
             </div>
           `, { addLabel: '+ Add Car Loan', emptyNote: 'No existing car loan added.' })}
+          ${applicantSubtotalRows('car')}
         </div>
 
         ${state.carLoans.length ? `
@@ -326,12 +416,13 @@
       <section class="card" id="sec-dsr-3">
         ${sectionHeader('03', 'PTPTN', 'Your current monthly PTPTN repayment(s), if any.')}
         <div style="margin-top:2px;">
-          ${renderEntryList('ptptn', state.ptptnList, (entry, i) => `
-            ${applicantPill('ptptn', i, entry.applicant)}
+          ${applicantTabSwitcher('ptptn')}
+          ${renderEntryList('ptptn', visibleEntries('ptptn'), (entry, index, pos) => `
             <div class="section-grid">
-              ${moneyFieldEntry(`PTPTN ${i + 1} — Monthly Payment`, 'ptptn', i, 'payment', entry.payment)}
+              ${moneyFieldEntry(`PTPTN ${pos + 1} — Monthly Payment`, 'ptptn', index, 'payment', entry.payment)}
             </div>
           `, { addLabel: '+ Add PTPTN', emptyNote: 'No existing PTPTN repayment added.' })}
+          ${applicantSubtotalRows('ptptn')}
         </div>
         ${state.ptptnList.length ? `
           <div class="chain-result" style="margin-top:14px;">
@@ -345,12 +436,13 @@
       <section class="card" id="sec-dsr-4">
         ${sectionHeader('04', 'Personal Loan', 'Monthly repayment for every personal loan (bank or otherwise), if any.')}
         <div style="margin-top:2px;">
-          ${renderEntryList('personal', state.personalLoans, (entry, i) => `
-            ${applicantPill('personal', i, entry.applicant)}
+          ${applicantTabSwitcher('personal')}
+          ${renderEntryList('personal', visibleEntries('personal'), (entry, index, pos) => `
             <div class="section-grid">
-              ${moneyFieldEntry(`Personal Loan ${i + 1} — Monthly Payment`, 'personal', i, 'payment', entry.payment)}
+              ${moneyFieldEntry(`Personal Loan ${pos + 1} — Monthly Payment`, 'personal', index, 'payment', entry.payment)}
             </div>
           `, { addLabel: '+ Add Personal Loan', emptyNote: 'No existing personal loan added.' })}
+          ${applicantSubtotalRows('personal')}
         </div>
         ${state.personalLoans.length ? `
           <div class="chain-result" style="margin-top:14px;">
@@ -370,20 +462,21 @@
         )}
 
         <div style="margin-top:14px;">
-          ${renderEntryList('cc', state.creditCards, (entry, i) => `
-            ${applicantPill('cc', i, entry.applicant)}
-            <div class="field-label"><span>Credit Card ${i + 1}</span></div>
-            ${pillGroupEntry('cc', i, 'mode', [
+          ${applicantTabSwitcher('cc')}
+          ${renderEntryList('cc', visibleEntries('cc'), (entry, index, pos) => `
+            <div class="field-label"><span>Credit Card ${pos + 1}</span></div>
+            ${pillGroupEntry('cc', index, 'mode', [
               { value: 'clear', label: 'Clear Outstanding Balance On Time' },
               { value: 'installment', label: 'Having Installment Plans' },
             ], entry.mode)}
             ${entry.mode === 'installment' ? `
               <div class="section-grid" style="margin-top:12px;">
-                ${moneyFieldEntry('Outstanding Balance', 'cc', i, 'outstanding', entry.outstanding)}
-                ${moneyFieldEntry('Total Installment Amount', 'cc', i, 'installmentAmount', entry.installmentAmount)}
+                ${moneyFieldEntry('Outstanding Balance', 'cc', index, 'outstanding', entry.outstanding)}
+                ${moneyFieldEntry('Total Installment Amount', 'cc', index, 'installmentAmount', entry.installmentAmount)}
               </div>
             ` : ''}
           `, { addLabel: '+ Add Credit Card', emptyNote: 'No credit card added.' })}
+          ${applicantSubtotalRows('cc')}
         </div>
 
         ${state.creditCards.length ? `
@@ -460,7 +553,7 @@
           <div class="dsr-callout" style="margin-top:14px;">Fill in your Nett Income and Age above (Section 06) to see your healthy DSR range and estimated maximum property loan.</div>
         `}
 
-        <a href="${buildWhatsAppLink()}" target="_blank" rel="noopener" class="exitplan-btn active" style="display:block; text-align:center; text-decoration:none; margin-top:16px;">Send My Details to Tony via WhatsApp &rarr;</a>
+        <a href="${buildWhatsAppLink()}" target="_blank" rel="noopener" class="exitplan-btn active" style="display:block; text-align:center; text-decoration:none; margin-top:16px;">Send My Details to Tony (For Projects Comparison)</a>
         <a href="index.html?${buildCarryOverParams().toString()}" style="display:block; text-align:center; margin-top:10px; font-size:15.5px; color:var(--ink-soft);">or bring these figures back into the Calculator &rarr;</a>
 
         <div class="disclaimer" style="margin-top:16px;">Disclaimer: Estimate only, for planning purposes. The healthy DSR ranges, maximum loan tenure (assumes banks lend up to age 70) and maximum loan shown above are general guidelines based on nett income and age, not a bank policy. Actual DSR calculation method, limit, tenure and loan eligibility — and which commitments are included — are determined solely by the bank based on your CTOS/CCRIS credit report, product type and internal policies. Please confirm with Tony or your banker before relying on this breakdown.</div>
@@ -568,6 +661,14 @@
       el.addEventListener('change', () => set('jointApplicant', el.checked));
     });
 
+    // Main / Joint Applicant tab switchers (inside each commitment section)
+    rootEl.querySelectorAll('[data-tab-switch]').forEach(el => {
+      el.addEventListener('click', () => {
+        const [cat, applicant] = el.getAttribute('data-tab-switch').split(':');
+        setActiveTab(cat, applicant);
+      });
+    });
+
     // Top-level fields (Nett Income, Age, and the joint-applicant equivalents)
     rootEl.querySelectorAll('[data-bind-manual]').forEach(el => {
       const commit = () => {
@@ -598,7 +699,7 @@
       el.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); el.blur(); } });
     });
 
-    // Per-entry pill selectors (e.g. house:0:status, cc:0:mode, house:0:applicant)
+    // Per-entry pill selectors (e.g. house:0:status, cc:0:mode)
     rootEl.querySelectorAll('[data-entry-pill]').forEach(el => {
       el.addEventListener('click', () => {
         const [cat, idx, field] = el.getAttribute('data-entry-pill').split(':');

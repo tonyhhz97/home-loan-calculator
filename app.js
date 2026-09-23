@@ -179,6 +179,38 @@
   }
 
   // -------------------------------------------------------------------
+  // Persistence — sessionStorage only (cleared when the tab is closed,
+  // kept across navigating to/from the DSR Calculation page or reloading).
+  // Whichever field a URL param explicitly sets (e.g. the DSR page's
+  // "bring these figures back into the Calculator" carry-over link) always
+  // wins over a restored value for that same field.
+  // -------------------------------------------------------------------
+  const STORAGE_KEY = 'homeLoanCalc:v1';
+  const PARAM_FIELD_MAP = {
+    name: 'projectNamePart', location: 'projectLocationPart', unit: 'unitNumber',
+    price: 'price', size: 'unitSizeSqft', rebatePct: 'rebatePct', rate: 'interestRatePct',
+    ltv: 'loanMarginPct', tenure: 'tenureYears', income: 'income', borrowers: 'borrowers',
+    house: 'existingPropertyLoanInstalment', car: 'carLoanCommitment', ptptn: 'ptptnCommitment',
+    personal: 'personalLoanCommitment', cc: 'creditCardCommitment',
+    rental: 'monthlyRental', maint: 'maintenanceFeePerSqft',
+  };
+  function loadSavedPageState() {
+    try {
+      const raw = sessionStorage.getItem(STORAGE_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) { return null; }
+  }
+  function savePageState() {
+    try {
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
+        comparison: pageState.comparison,
+        a: instances[0].state,
+        b: instances[1].state,
+      }));
+    } catch (e) { /* storage unavailable — fail silently */ }
+  }
+
+  // -------------------------------------------------------------------
   // Default seed — every new instance (including a comparison partner)
   // starts from the same project config / URL-param defaults.
   // -------------------------------------------------------------------
@@ -238,8 +270,14 @@
   // state/recalc/render/bindEvents is now scoped to one instance, so two
   // of these can run side by side (Comparison mode) with zero cross-talk.
   // =====================================================================
-  function createInstance(id, label) {
-    const state = defaultSeed();
+  function createInstance(id, label, savedState) {
+    const fresh = defaultSeed();
+    const state = Object.assign({}, fresh, savedState || {});
+    // Explicit URL params always win over a restored session value for the
+    // same field (e.g. a fresh carry-over from the DSR Calculation page).
+    Object.keys(PARAM_FIELD_MAP).forEach(pKey => {
+      if (params.has(pKey)) state[PARAM_FIELD_MAP[pKey]] = fresh[PARAM_FIELD_MAP[pKey]];
+    });
     let D = {};
 
     function recalc() {
@@ -669,8 +707,12 @@
   // PAGE LEVEL — topbar, hero, Comparison toggle, one or two instances
   // side by side, footer.
   // =====================================================================
-  const pageState = { comparison: false };
-  const instances = [ createInstance('a', 'Project A'), createInstance('b', 'Project B') ];
+  const savedPageState = loadSavedPageState();
+  const pageState = { comparison: !!(savedPageState && savedPageState.comparison) };
+  const instances = [
+    createInstance('a', 'Project A', savedPageState && savedPageState.a),
+    createInstance('b', 'Project B', savedPageState && savedPageState.b),
+  ];
 
   function renderInstanceColumn(inst) {
     return `<div class="calc-instance" id="calc-root-${inst.id}">
@@ -718,6 +760,7 @@
       const rootEl = document.getElementById('calc-root-' + inst.id);
       if (rootEl) inst.bindEvents(rootEl);
     });
+    savePageState();
   }
 
   function bindTopEvents() {
