@@ -4,10 +4,7 @@
    A detailed, standalone breakdown of exactly what counts toward a buyer's
    monthly debt commitments for DSR purposes. Lives at its own URL
    (dsr-calculation.html) alongside the main calculator (index.html) — the
-   topbar's "DSR Calculation" button links here, and this page's "Use These
-   Figures in the Calculator" button links back with the computed numbers
-   pre-filled via URL params (house, car, ptptn, personal, cc — see
-   config.js's URL-param docs and app.js's defaultSeed()).
+   topbar's "DSR Calculation" button links here.
 
    Each commitment category (house loan, car loan, PTPTN, personal loan,
    credit card) is a LIST — a buyer can add as many entries as they actually
@@ -15,12 +12,23 @@
    remove any entry. A category with zero entries simply contributes RM 0 —
    there is no separate "no existing loan" toggle to manage.
 
+   JOINT APPLICANT: ticking "Joint Applicant" near the top tags every entry
+   with who it belongs to (Main / Joint Applicant) and adds a second income +
+   age block in Section 06 — the eligibility estimate then uses the combined
+   income of both applicants, and the older applicant's age to cap tenure.
+
+   The final CTA sends a plain-text summary of everything filled in
+   (income/age, every commitment, and the estimated eligibility) straight to
+   Tony's WhatsApp via a wa.me link — this page's purpose is to hand Tony a
+   ready-to-act-on lead, not just to bounce the buyer back to the calculator.
+
    Deliberately independent of app.js: this page has no comparison mode, no
    multi-instance factory — just one flat state object and a re-render.
    ========================================================================= */
 (function () {
   const CFG = window.CALC_CONFIG;
   const C = CFG.branding.colors;
+  const WHATSAPP_NUMBER = '601113207364';
 
   // Same brand CSS variables app.js applies — kept identical so this page
   // matches the main calculator exactly even if config.js is re-branded.
@@ -35,25 +43,26 @@
   // page has no dependency on it) ------------------------------------------
   const fmt = new Intl.NumberFormat('en-MY', { maximumFractionDigits: 0 });
   const rm = (n) => 'RM ' + fmt.format(Math.round(n || 0));
+  const rmK = (n) => 'RM' + Math.round((n || 0) / 1000) + 'k';
   const groupNum = (n, decimals = 0) => Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
   const cleanNum = (s) => String(s == null ? '' : s).replace(/,/g, '');
   const round2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
 
   // -------------------------------------------------------------------
   // State — five commitment categories, each a list of entries, plus the
-  // buyer's nett income and age (used for the healthy-DSR-range and
-  // maximum-loan estimate at the bottom of the page).
+  // buyer's (and, if joint, the co-applicant's) nett income and age.
   // -------------------------------------------------------------------
   const CAT_ARRAY = { house: 'houseLoans', car: 'carLoans', ptptn: 'ptptnList', personal: 'personalLoans', cc: 'creditCards' };
   const ENTRY_DEFAULTS = {
-    house: () => ({ status: 'own', instalment: 0 }),
-    car: () => ({ instalment: 0 }),
-    ptptn: () => ({ payment: 0 }),
-    personal: () => ({ payment: 0 }),
-    cc: () => ({ mode: 'clear', outstanding: 0, installmentAmount: 0 }),
+    house: () => ({ status: 'own', instalment: 0, applicant: 'main' }),
+    car: () => ({ instalment: 0, applicant: 'main' }),
+    ptptn: () => ({ payment: 0, applicant: 'main' }),
+    personal: () => ({ payment: 0, applicant: 'main' }),
+    cc: () => ({ mode: 'clear', outstanding: 0, installmentAmount: 0, applicant: 'main' }),
   };
 
   const state = {
+    jointApplicant: false,
     houseLoans: [],
     carLoans: [],
     ptptnList: [],
@@ -61,6 +70,8 @@
     creditCards: [],
     nettIncome: 0,
     age: 30,
+    nettIncomeJoint: 0,
+    ageJoint: 30,
   };
   let D = {};
 
@@ -82,22 +93,26 @@
     const ccCommitment = round2(state.creditCards.reduce((sum, e) => sum + (e.mode === 'installment' ? e.installmentAmount : 0), 0));
     const total = round2(houseCommitment + carCommitment + ptptnCommitment + personalCommitment + ccCommitment);
 
+    const combinedIncome = round2(state.nettIncome + (state.jointApplicant ? state.nettIncomeJoint : 0));
+
     // ---- Healthy DSR range + maximum property loan estimate — only once
     // the buyer has filled in a nett income.
     let eligibility = null;
-    if (state.nettIncome > 0) {
-      const range = dsrRangeForIncome(state.nettIncome);
+    if (combinedIncome > 0) {
+      const range = dsrRangeForIncome(combinedIncome);
       const maxAgeAtLoanMaturity = 70; // assumption — see disclaimer
-      const tenureYears = Math.max(1, Math.min(35, maxAgeAtLoanMaturity - (state.age || 0)));
+      // Conservative: tenure is capped by whichever applicant is older.
+      const ageBasis = state.jointApplicant ? Math.max(state.age || 0, state.ageJoint || 0) : (state.age || 0);
+      const tenureYears = Math.max(1, Math.min(35, maxAgeAtLoanMaturity - ageBasis));
       const rate = CFG.project.interestRatePct;
       const atPct = (pct) => CALC.calcMaxLoanEligibility({
-        monthlyIncome: state.nettIncome, monthlyCommitments: total, numberOfBorrowers: 1,
+        monthlyIncome: combinedIncome, monthlyCommitments: total, numberOfBorrowers: state.jointApplicant ? 2 : 1,
         dsrThresholdPct: pct, annualRatePct: rate, tenureYears
       });
-      eligibility = { range, tenureYears, rate, low: atPct(range.min), high: atPct(range.max) };
+      eligibility = { range, tenureYears, rate, ageBasis, low: atPct(range.min), high: atPct(range.max) };
     }
 
-    D = { houseCommitment, carCommitment, ptptnCommitment, personalCommitment, ccCommitment, total, eligibility };
+    D = { houseCommitment, carCommitment, ptptnCommitment, personalCommitment, ccCommitment, total, combinedIncome, eligibility };
   }
 
   function set(key, val) { state[key] = val; recalcAndRender(); }
@@ -143,14 +158,28 @@
   }
 
   // A pill selector for a single entry field (e.g. this house loan's
-  // ownership status, or this card's clear/installment mode) — same visual
-  // language as the rest of the page.
+  // ownership status, this card's clear/installment mode, or which
+  // applicant an entry belongs to) — same visual language throughout.
   function pillGroupEntry(cat, index, field, options, current) {
     return `<div class="dsr-pill-group">
       ${options.map(opt => `
         <button type="button" class="dsr-pill ${opt.value === current ? 'active' : ''}" data-entry-pill="${cat}:${index}:${field}" data-entry-pill-value="${opt.value}">${opt.label}</button>
       `).join('')}
     </div>`;
+  }
+
+  // Shown at the top of every entry, but only once Joint Applicant is
+  // ticked — tags that entry as belonging to the main or joint applicant.
+  function applicantPill(cat, index, current) {
+    if (!state.jointApplicant) return '';
+    return `
+      <div class="field-label"><span>Applicant</span></div>
+      ${pillGroupEntry(cat, index, 'applicant', [
+        { value: 'main', label: 'Main Applicant' },
+        { value: 'joint', label: 'Joint Applicant' },
+      ], current)}
+      <div style="margin-top:12px;"></div>
+    `;
   }
 
   function moneyField(label, key, value, { placeholder = '0', max = 100000 } = {}) {
@@ -160,6 +189,17 @@
         <div class="input-affix">
           <span class="affix-pre">RM</span>
           <input type="text" inputmode="decimal" class="affix-input" data-bind-manual="${key}" data-min="0" data-max="${max}" placeholder="${placeholder}" value="${groupNum(value)}">
+        </div>
+      </div>`;
+  }
+
+  function ageField(key, value) {
+    return `
+      <div class="field">
+        <div class="field-label"><span>Age</span></div>
+        <div class="input-affix">
+          <input type="text" inputmode="decimal" class="affix-input" data-bind-manual="${key}" data-min="18" data-max="70" value="${groupNum(value)}">
+          <span class="affix-suf">years old</span>
         </div>
       </div>`;
   }
@@ -193,6 +233,30 @@
     `;
   }
 
+  // Count suffix for the summary box, e.g. "House Loan (x2)" — always shown
+  // once there's at least one entry, so Tony can see at a glance how many
+  // properties/loans are already financed (relevant to loan margin: a 3rd
+  // residential property is typically capped lower by the bank).
+  function countSuffix(n) {
+    return n >= 1 ? ` (x${n})` : '';
+  }
+
+  // -------------------------------------------------------------------
+  // Joint Applicant toggle
+  // -------------------------------------------------------------------
+  function renderJointApplicantToggle() {
+    return `
+      <section class="card" id="sec-dsr-joint">
+        <label style="display:flex; align-items:center; gap:12px; cursor:pointer;">
+          <input type="checkbox" data-joint-toggle="1" ${state.jointApplicant ? 'checked' : ''} style="width:21px; height:21px; accent-color:var(--accent); flex:none; cursor:pointer;">
+          <span style="font-size:19px; font-weight:700;">Joint Applicant</span>
+        </label>
+        <div class="dsr-empty-note" style="margin-top:8px; font-style:normal;">
+          Applying together with a co-borrower (spouse, family member, etc.)? Tick this to record both applicants' income, age and commitments separately — the eligibility estimate below will then use your combined income.
+        </div>
+      </section>`;
+  }
+
   // -------------------------------------------------------------------
   // Sections
   // -------------------------------------------------------------------
@@ -210,6 +274,7 @@
 
         <div style="margin-top:14px;">
           ${renderEntryList('house', state.houseLoans, (entry, i) => `
+            ${applicantPill('house', i, entry.applicant)}
             <div class="field-label"><span>House Loan ${i + 1} — Ownership</span></div>
             ${pillGroupEntry('house', i, 'status', [
               { value: 'own', label: 'Under My Name' },
@@ -226,7 +291,7 @@
 
         ${state.houseLoans.length ? `
           <div class="chain-result" style="margin-top:14px;">
-            <div class="chain-item highlight"><div class="l">Total House Loan Commitment</div><div class="v orange big">${rm(D.houseCommitment)}</div></div>
+            <div class="chain-item highlight"><div class="l">Total House Loan Commitment${countSuffix(state.houseLoans.length)}</div><div class="v orange big">${rm(D.houseCommitment)}</div></div>
           </div>` : ''}
       </section>`;
   }
@@ -242,6 +307,7 @@
 
         <div style="margin-top:14px;">
           ${renderEntryList('car', state.carLoans, (entry, i) => `
+            ${applicantPill('car', i, entry.applicant)}
             <div class="section-grid">
               ${moneyFieldEntry(`Car Loan ${i + 1} — Monthly Instalment`, 'car', i, 'instalment', entry.instalment)}
             </div>
@@ -250,7 +316,7 @@
 
         ${state.carLoans.length ? `
           <div class="chain-result" style="margin-top:14px;">
-            <div class="chain-item highlight"><div class="l">Total Car Loan Commitment</div><div class="v orange big">${rm(D.carCommitment)}</div></div>
+            <div class="chain-item highlight"><div class="l">Total Car Loan Commitment${countSuffix(state.carLoans.length)}</div><div class="v orange big">${rm(D.carCommitment)}</div></div>
           </div>` : ''}
       </section>`;
   }
@@ -261,6 +327,7 @@
         ${sectionHeader('03', 'PTPTN', 'Your current monthly PTPTN repayment(s), if any.')}
         <div style="margin-top:2px;">
           ${renderEntryList('ptptn', state.ptptnList, (entry, i) => `
+            ${applicantPill('ptptn', i, entry.applicant)}
             <div class="section-grid">
               ${moneyFieldEntry(`PTPTN ${i + 1} — Monthly Payment`, 'ptptn', i, 'payment', entry.payment)}
             </div>
@@ -268,7 +335,7 @@
         </div>
         ${state.ptptnList.length ? `
           <div class="chain-result" style="margin-top:14px;">
-            <div class="chain-item highlight"><div class="l">Total PTPTN Commitment</div><div class="v orange big">${rm(D.ptptnCommitment)}</div></div>
+            <div class="chain-item highlight"><div class="l">Total PTPTN Commitment${countSuffix(state.ptptnList.length)}</div><div class="v orange big">${rm(D.ptptnCommitment)}</div></div>
           </div>` : ''}
       </section>`;
   }
@@ -279,6 +346,7 @@
         ${sectionHeader('04', 'Personal Loan', 'Monthly repayment for every personal loan (bank or otherwise), if any.')}
         <div style="margin-top:2px;">
           ${renderEntryList('personal', state.personalLoans, (entry, i) => `
+            ${applicantPill('personal', i, entry.applicant)}
             <div class="section-grid">
               ${moneyFieldEntry(`Personal Loan ${i + 1} — Monthly Payment`, 'personal', i, 'payment', entry.payment)}
             </div>
@@ -286,7 +354,7 @@
         </div>
         ${state.personalLoans.length ? `
           <div class="chain-result" style="margin-top:14px;">
-            <div class="chain-item highlight"><div class="l">Total Personal Loan Commitment</div><div class="v orange big">${rm(D.personalCommitment)}</div></div>
+            <div class="chain-item highlight"><div class="l">Total Personal Loan Commitment${countSuffix(state.personalLoans.length)}</div><div class="v orange big">${rm(D.personalCommitment)}</div></div>
           </div>` : ''}
       </section>`;
   }
@@ -303,6 +371,7 @@
 
         <div style="margin-top:14px;">
           ${renderEntryList('cc', state.creditCards, (entry, i) => `
+            ${applicantPill('cc', i, entry.applicant)}
             <div class="field-label"><span>Credit Card ${i + 1}</span></div>
             ${pillGroupEntry('cc', i, 'mode', [
               { value: 'clear', label: 'Clear Outstanding Balance On Time' },
@@ -319,7 +388,7 @@
 
         ${state.creditCards.length ? `
           <div class="chain-result" style="margin-top:14px;">
-            <div class="chain-item highlight"><div class="l">Total Credit Card Commitment</div><div class="v orange big">${rm(D.ccCommitment)}</div></div>
+            <div class="chain-item highlight"><div class="l">Total Credit Card Commitment${countSuffix(state.creditCards.length)}</div><div class="v orange big">${rm(D.ccCommitment)}</div></div>
           </div>` : ''}
       </section>`;
   }
@@ -328,50 +397,56 @@
     return `
       <section class="card" id="sec-dsr-6">
         ${sectionHeader('06', 'Your Income & Age', 'This is what your commitments are measured against — and what determines your healthy DSR range and maximum loan tenure below.')}
+
+        <div class="field-label"><span>${state.jointApplicant ? 'Main Applicant' : 'Your Details'}</span></div>
         <div class="section-grid">
           ${moneyField('Nett Income (After deducted EPF, SOCSO and etc.)', 'nettIncome', state.nettIncome, { max: 100000 })}
-          <div class="field">
-            <div class="field-label"><span>Age</span></div>
-            <div class="input-affix">
-              <input type="text" inputmode="decimal" class="affix-input" data-bind-manual="age" data-min="18" data-max="70" value="${groupNum(state.age)}">
-              <span class="affix-suf">years old</span>
-            </div>
-          </div>
+          ${ageField('age', state.age)}
         </div>
+
+        ${state.jointApplicant ? `
+          <div class="divider"></div>
+          <div class="field-label"><span>Joint Applicant</span></div>
+          <div class="section-grid">
+            ${moneyField('Nett Income (After deducted EPF, SOCSO and etc.)', 'nettIncomeJoint', state.nettIncomeJoint, { max: 100000 })}
+            ${ageField('ageJoint', state.ageJoint)}
+          </div>
+          <div class="chain-result" style="margin-top:4px;">
+            <div class="chain-item highlight"><div class="l">Combined Nett Income</div><div class="v green big">${rm(D.combinedIncome)}</div></div>
+          </div>
+        ` : ''}
       </section>`;
   }
 
   function renderSummarySection() {
-    const params = new URLSearchParams({
-      house: D.houseCommitment, car: D.carCommitment, ptptn: D.ptptnCommitment,
-      personal: D.personalCommitment, cc: D.ccCommitment,
-    });
     const elig = D.eligibility;
     return `
       <section class="card summary-card" id="sec-dsr-summary">
         ${sectionHeader('07', 'Estimated Home Loan Eligibility', 'Your Total Monthly Commitments vs Your Monthly Nett Income')}
 
         <div class="result-block">
-          ${resultRow('House Loan', rm(D.houseCommitment))}
-          ${resultRow('Car Loan', rm(D.carCommitment))}
-          ${resultRow('PTPTN', rm(D.ptptnCommitment))}
-          ${resultRow('Personal Loan', rm(D.personalCommitment))}
-          ${resultRow('Credit Card', rm(D.ccCommitment))}
+          ${resultRow(`House Loan${countSuffix(state.houseLoans.length)}`, rm(D.houseCommitment))}
+          ${resultRow(`Car Loan${countSuffix(state.carLoans.length)}`, rm(D.carCommitment))}
+          ${resultRow(`PTPTN${countSuffix(state.ptptnList.length)}`, rm(D.ptptnCommitment))}
+          ${resultRow(`Personal Loan${countSuffix(state.personalLoans.length)}`, rm(D.personalCommitment))}
+          ${resultRow(`Credit Card${countSuffix(state.creditCards.length)}`, rm(D.ccCommitment))}
           <div class="result-row total">
             <span class="k">Your Total Monthly Commitments</span>
             <span class="v">${rm(D.total)}</span>
           </div>
-          ${state.nettIncome > 0 ? resultRow('Your Nett Income', `<span style="color:var(--value-green);">${rm(state.nettIncome)}</span>`) : ''}
+          ${D.combinedIncome > 0 ? resultRow(state.jointApplicant ? 'Your Combined Nett Income' : 'Your Nett Income', `<span style="color:var(--value-green);">${rm(D.combinedIncome)}</span>`) : ''}
         </div>
 
         ${elig ? `
           <div class="divider"></div>
-          <h3 class="mini-head">Healthy DSR Range &amp; Maximum Property Loan</h3>
+          <h3 class="mini-head">Healthy DSR Range &amp; Maximum Property Loan (Estimated)</h3>
           <div class="dsr-callout">
-            Based on a nett income of ${rm(state.nettIncome)}, a healthy indicative DSR range for you is
+            Based on a${state.jointApplicant ? ' combined' : ''} nett income of ${rm(D.combinedIncome)}, a healthy indicative DSR range for you is usually
             <b>${elig.range.min === elig.range.max ? elig.range.min + '%' : elig.range.min + '%–' + elig.range.max + '%'}</b>.
-            At age ${state.age}, assuming banks generally lend up to age 70, your maximum loan tenure works out to
-            <b>${elig.tenureYears} years</b> (capped at 35 years).
+            ${state.jointApplicant
+              ? `Based on the older applicant's age of ${elig.ageBasis}, assuming banks generally lend up to age 70,`
+              : `At age ${elig.ageBasis}, assuming banks generally lend up to age 70,`}
+            your maximum loan tenure works out to <b>${elig.tenureYears} years</b> (capped at 35 years).
           </div>
           <div class="result-block" style="margin-top:12px;">
             ${resultRow('Maximum Monthly Instalment You Can Afford', `${rm(elig.low.availableForNewLoan)} – ${rm(elig.high.availableForNewLoan)}`)}
@@ -385,10 +460,64 @@
           <div class="dsr-callout" style="margin-top:14px;">Fill in your Nett Income and Age above (Section 06) to see your healthy DSR range and estimated maximum property loan.</div>
         `}
 
-        <a href="index.html?${params.toString()}" class="exitplan-btn active" style="display:block; text-align:center; text-decoration:none; margin-top:16px;">Use These Figures in the Calculator &rarr;</a>
+        <a href="${buildWhatsAppLink()}" target="_blank" rel="noopener" class="exitplan-btn active" style="display:block; text-align:center; text-decoration:none; margin-top:16px;">Send My Details to Tony via WhatsApp &rarr;</a>
+        <a href="index.html?${buildCarryOverParams().toString()}" style="display:block; text-align:center; margin-top:10px; font-size:15.5px; color:var(--ink-soft);">or bring these figures back into the Calculator &rarr;</a>
 
-        <div class="disclaimer" style="margin-top:16px;">Estimate only, for planning purposes. The healthy DSR ranges, maximum loan tenure (assumes banks lend up to age 70) and maximum loan shown above are general guidelines based on nett income and age, not a bank policy. Actual DSR calculation method, limit, tenure and loan eligibility — and which commitments are included — are determined solely by the bank based on your CTOS/CCRIS credit report, product type and internal policies. Please confirm with your banker before relying on this breakdown.</div>
+        <div class="disclaimer" style="margin-top:16px;">Disclaimer: Estimate only, for planning purposes. The healthy DSR ranges, maximum loan tenure (assumes banks lend up to age 70) and maximum loan shown above are general guidelines based on nett income and age, not a bank policy. Actual DSR calculation method, limit, tenure and loan eligibility — and which commitments are included — are determined solely by the bank based on your CTOS/CCRIS credit report, product type and internal policies. Please confirm with Tony or your banker before relying on this breakdown.</div>
       </section>`;
+  }
+
+  // -------------------------------------------------------------------
+  // Carry-over link (back into the main calculator) + WhatsApp handoff
+  // -------------------------------------------------------------------
+  function buildCarryOverParams() {
+    return new URLSearchParams({
+      house: D.houseCommitment, car: D.carCommitment, ptptn: D.ptptnCommitment,
+      personal: D.personalCommitment, cc: D.ccCommitment,
+    });
+  }
+
+  // Builds the plain-text WhatsApp message — every income/age figure and
+  // every commitment spelled out (with the same "(x2)"-style counts as the
+  // summary box), then the estimated eligibility, so Tony receives a
+  // ready-to-act-on lead rather than just a set of numbers.
+  function buildWhatsAppMessage() {
+    const elig = D.eligibility;
+    const lines = [];
+    lines.push("Hi Tony, here's my DSR & Home Loan Eligibility summary from your calculator:");
+    lines.push('');
+    lines.push('*My Income & Age*');
+    if (state.jointApplicant) {
+      lines.push(`Main Applicant = ${rm(state.nettIncome)} (age ${state.age})`);
+      lines.push(`Joint Applicant = ${rm(state.nettIncomeJoint)} (age ${state.ageJoint})`);
+      lines.push(`Combined Nett Income = ${rm(D.combinedIncome)}`);
+    } else {
+      lines.push(`Nett Income = ${rm(state.nettIncome)} (age ${state.age})`);
+    }
+    lines.push('');
+    lines.push('*My Monthly Commitments*');
+    lines.push(`House Loan${countSuffix(state.houseLoans.length)} = ${rm(D.houseCommitment)}`);
+    lines.push(`Car Loan${countSuffix(state.carLoans.length)} = ${rm(D.carCommitment)}`);
+    lines.push(`PTPTN${countSuffix(state.ptptnList.length)} = ${rm(D.ptptnCommitment)}`);
+    lines.push(`Personal Loan${countSuffix(state.personalLoans.length)} = ${rm(D.personalCommitment)}`);
+    lines.push(`Credit Card${countSuffix(state.creditCards.length)} = ${rm(D.ccCommitment)}`);
+    lines.push(`Total Monthly Commitments = ${rm(D.total)}`);
+    lines.push('');
+    if (elig) {
+      lines.push('*Estimated Eligibility*');
+      lines.push(`Healthy DSR Range = ${elig.range.min === elig.range.max ? elig.range.min + '%' : elig.range.min + '%–' + elig.range.max + '%'}`);
+      lines.push(`Max Loan Tenure = ${elig.tenureYears} years`);
+      lines.push(`Estimated Maximum Property Loan = ${rm(elig.low.maxLoan)} – ${rm(elig.high.maxLoan)}`);
+      lines.push('');
+      lines.push(`Based on my income and commitments, I understand I may be entitled to a property of around ${rmK(elig.high.maxLoan)}. Can you help me find the right project?`);
+    } else {
+      lines.push("I haven't filled in my income yet — can you help me work out my eligibility?");
+    }
+    return lines.join('\n');
+  }
+
+  function buildWhatsAppLink() {
+    return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(buildWhatsAppMessage())}`;
   }
 
   // -------------------------------------------------------------------
@@ -414,6 +543,7 @@
 
       <div class="calc-columns">
         <div class="calc-instance">
+          ${renderJointApplicantToggle()}
           ${renderHouseLoanSection()}
           ${renderCarLoanSection()}
           ${renderPtptnSection()}
@@ -433,7 +563,12 @@
   }
 
   function bindEvents(rootEl) {
-    // Top-level fields (Nett Income, Age)
+    // Joint Applicant toggle
+    rootEl.querySelectorAll('[data-joint-toggle]').forEach(el => {
+      el.addEventListener('change', () => set('jointApplicant', el.checked));
+    });
+
+    // Top-level fields (Nett Income, Age, and the joint-applicant equivalents)
     rootEl.querySelectorAll('[data-bind-manual]').forEach(el => {
       const commit = () => {
         const key = el.getAttribute('data-bind-manual');
@@ -463,7 +598,7 @@
       el.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); el.blur(); } });
     });
 
-    // Per-entry pill selectors (e.g. house:0:status, cc:0:mode)
+    // Per-entry pill selectors (e.g. house:0:status, cc:0:mode, house:0:applicant)
     rootEl.querySelectorAll('[data-entry-pill]').forEach(el => {
       el.addEventListener('click', () => {
         const [cat, idx, field] = el.getAttribute('data-entry-pill').split(':');
