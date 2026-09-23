@@ -18,7 +18,7 @@
    Joint Applicant tab to fill in the co-applicant's loans separately, and
    the section's total always adds both together automatically. Section 06
    also gets a second income + age block — the eligibility estimate uses the
-   combined income of both applicants, and the older applicant's age to cap
+   combined income of both applicants, and the younger applicant's age to cap
    tenure.
 
    The final CTA sends a plain-text summary of everything filled in
@@ -92,8 +92,8 @@
     ptptnList: [],
     personalLoans: [],
     creditCards: [],
-    nettIncome: 0,
-    age: 30,
+    nettIncome: 5000,
+    age: 26,
     nettIncomeJoint: 0,
     ageJoint: 30,
     // Which applicant's entries are shown/added-to right now, per category —
@@ -149,8 +149,9 @@
     if (combinedIncome > 0) {
       const range = dsrRangeForIncome(combinedIncome);
       const maxAgeAtLoanMaturity = 70; // assumption — see disclaimer
-      // Conservative: tenure is capped by whichever applicant is older.
-      const ageBasis = state.jointApplicant ? Math.max(state.age || 0, state.ageJoint || 0) : (state.age || 0);
+      // Tenure is based on whichever applicant is younger (the longer runway
+      // to age 70), rather than the more conservative older-applicant basis.
+      const ageBasis = state.jointApplicant ? Math.min(state.age || 0, state.ageJoint || 0) : (state.age || 0);
       const tenureYears = Math.max(1, Math.min(35, maxAgeAtLoanMaturity - ageBasis));
       const rate = CFG.project.interestRatePct;
       const atPct = (pct) => CALC.calcMaxLoanEligibility({
@@ -537,7 +538,7 @@
             Based on a${state.jointApplicant ? ' combined' : ''} nett income of ${rm(D.combinedIncome)}, a healthy indicative DSR range for you is usually
             <b>${elig.range.min === elig.range.max ? elig.range.min + '%' : elig.range.min + '%–' + elig.range.max + '%'}</b>.
             ${state.jointApplicant
-              ? `Based on the older applicant's age of ${elig.ageBasis}, assuming banks generally lend up to age 70,`
+              ? `Based on the younger applicant's age of ${elig.ageBasis}, assuming banks generally lend up to age 70,`
               : `At age ${elig.ageBasis}, assuming banks generally lend up to age 70,`}
             your maximum loan tenure works out to <b>${elig.tenureYears} years</b> (capped at 35 years).
           </div>
