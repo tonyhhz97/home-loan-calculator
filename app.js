@@ -72,6 +72,14 @@
   const initTenure = num(params.get('tenure'), p.tenureYears);
   const initIncome = num(params.get('income'), a.buyerMonthlyIncome);
   const initBorrowers = num(params.get('borrowers'), a.numberOfBorrowers);
+  // Populated by the DSR Calculation helper page ("Use These Figures in the
+  // Calculator" button) — falls back to the usual assumption defaults when
+  // not present, so a plain visit to this page is unaffected.
+  const initExistingHouse = num(params.get('house'), a.existingPropertyLoanInstalment);
+  const initExistingCar = num(params.get('car'), a.carLoanCommitment);
+  const initExistingPtptn = num(params.get('ptptn'), a.ptptnCommitment);
+  const initExistingPersonal = num(params.get('personal'), a.personalLoanCommitment);
+  const initExistingCc = num(params.get('cc'), a.creditCardCommitment);
 
   // -------------------------------------------------------------------
   // Tooltip content (shared)
@@ -191,11 +199,11 @@
       income: initIncome,
       borrowers: Math.max(1, initBorrowers),
       dsrThresholdPct: a.dsrThresholdPct,
-      existingPropertyLoanInstalment: a.existingPropertyLoanInstalment,
-      carLoanCommitment: a.carLoanCommitment,
-      ptptnCommitment: a.ptptnCommitment,
-      personalLoanCommitment: a.personalLoanCommitment,
-      creditCardCommitment: a.creditCardCommitment,
+      existingPropertyLoanInstalment: initExistingHouse,
+      carLoanCommitment: initExistingCar,
+      ptptnCommitment: initExistingPtptn,
+      personalLoanCommitment: initExistingPersonal,
+      creditCardCommitment: initExistingCc,
 
       monthlyRental: initRental,
       maintenanceFeePerSqft: initMaint,
@@ -682,7 +690,10 @@
             <div class="brand-name">${CFG.branding.agentTitle}</div>
             <div class="brand-tag">${CFG.branding.agentTagline}</div>
           </div>
-          <button type="button" class="comparison-btn ${pageState.comparison ? 'active' : ''}" data-comparison-toggle="1">Comparison</button>
+          <div class="topbar-actions" style="margin-left:auto; display:flex; flex-direction:column; align-items:flex-end; gap:8px;">
+            <button type="button" class="comparison-btn ${pageState.comparison ? 'active' : ''}" style="margin-left:0;" data-comparison-toggle="1">Comparison</button>
+            <a href="dsr-calculation.html" class="comparison-btn" style="margin-left:0; text-decoration:none; text-align:center;">DSR Calculation</a>
+          </div>
         </div>
         <div class="hero-title-box">
           <h1>Integrated Home Loan Calculator</h1>

@@ -12,7 +12,10 @@
      &rental=2200&maint=0.35&rebate=5000&rate=3.85&ltv=90&mode=invest
 
    Supported URL params: name, price, size, rental, maint (RM/sqft/month),
-   rebatePct, rate, ltv, tenure, mode (own | invest), income, borrowers.
+   rebatePct, rate, ltv, tenure, mode (own | invest), income, borrowers,
+   house, car, ptptn, personal, cc — the last five are how the DSR
+   Calculation helper page (dsr-calculation.html) hands its computed
+   monthly-commitment figures back to this page.
    ========================================================================= */
 
 window.CALC_CONFIG = {

@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <title>DSR Calculation — Commitment Breakdown</title>
+  <meta name="description" content="A detailed, professional walkthrough of exactly what counts toward your monthly debt commitments for DSR purposes.">
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    /* Small additions specific to this page — kept here rather than in the
+       shared stylesheet since only the DSR Calculation page uses them. */
+    .dsr-callout{
+      font-size:16px; line-height:1.6; color:var(--ink-soft); background:var(--bg);
+      border-left:3px solid var(--accent); border-radius:0 var(--radius-sm) var(--radius-sm) 0;
+      padding:12px 16px; margin-top:10px;
+    }
+    .dsr-pill-group{display:flex; flex-wrap:wrap; gap:8px; margin-top:8px;}
+    .dsr-pill{
+      border:1px solid var(--border); background:var(--surface); color:var(--ink-soft);
+      font-weight:700; padding:9px 16px; border-radius:999px; font-size:15.5px;
+      cursor:pointer; font-family:var(--font-family); transition:.15s;
+    }
+    .dsr-pill:hover{border-color:var(--accent); color:var(--accent-dark);}
+    .dsr-pill.active{background:var(--accent); color:#fff; border-color:var(--accent);}
+  </style>
+</head>
+<body>
+  <div class="page-bg" aria-hidden="true">
+    <div class="page-bg-image"></div>
+    <div class="page-bg-overlay"></div>
+  </div>
+
+  <div class="app" id="app">
+    <!-- rendered by dsr-calculation.js -->
+  </div>
+
+  <script src="config.js"></script>
+  <script src="calculations.js"></script>
+  <script src="dsr-calculation.js"></script>
+</body>
+</html>

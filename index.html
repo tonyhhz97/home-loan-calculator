@@ -6,6 +6,17 @@
   <title>Integrated Home Loan Calculator</title>
   <meta name="description" content="An interactive property loan, upfront cost, rebate and rental ROI calculator.">
   <link rel="stylesheet" href="styles.css">
+  <style>
+    /* Keeps the stacked "Comparison" / "DSR Calculation" buttons full-width
+       and in their own row on mobile, matching how the single button used
+       to behave (see .hero-frame .comparison-btn in styles.css). Scoped
+       here rather than in the shared stylesheet since it only concerns
+       this page's topbar-actions wrapper. */
+    @media (max-width:600px){
+      .hero-frame .comparison-btn{text-align:center;}
+      .hero-frame .topbar-actions{order:3; width:100%;}
+    }
+  </style>
 </head>
 <body>
   <!-- Fixed full-screen photo background — lives outside #app so app.js's
