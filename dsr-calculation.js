@@ -30,6 +30,14 @@
    away (e.g. "Back to Calculator") and returning restores exactly what was
    filled in. It only resets when the browser tab is closed.
 
+   HAND-OFF TO THE MAIN CALCULATOR: alongside the full state above, a small
+   summary (income, each commitment category's total + entry count, and the
+   estimated eligibility) is saved separately under a "dsrCalcSummary" key.
+   The main calculator's Section 03 (DSR) reads that summary — once it
+   exists, Section 03 shows it as a read-only recap instead of asking for
+   income/commitments again, and (in Comparison mode) shares it across both
+   projects rather than asking twice.
+
    Deliberately independent of app.js: this page has no comparison mode, no
    multi-instance factory — just one flat state object and a re-render.
    ========================================================================= */
@@ -38,6 +46,7 @@
   const C = CFG.branding.colors;
   const WHATSAPP_NUMBER = '601113207364';
   const STORAGE_KEY = 'dsrCalc:v1';
+  const SUMMARY_KEY = 'dsrCalcSummary:v1';
 
   // Same brand CSS variables app.js applies — kept identical so this page
   // matches the main calculator exactly even if config.js is re-branded.
@@ -69,6 +78,25 @@
   }
   function saveState() {
     try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) { /* storage unavailable — fail silently */ }
+  }
+  // Small hand-off summary for the main calculator's Section 03 — saved
+  // separately from the full state above so app.js never has to know this
+  // page's internal shape (multi-entry lists, tabs, etc.), only the totals.
+  function saveSummary() {
+    try {
+      sessionStorage.setItem(SUMMARY_KEY, JSON.stringify({
+        income: D.combinedIncome,
+        jointApplicant: state.jointApplicant,
+        house: D.houseCommitment, houseCount: state.houseLoans.length,
+        car: D.carCommitment, carCount: state.carLoans.length,
+        ptptn: D.ptptnCommitment, ptptnCount: state.ptptnList.length,
+        personal: D.personalCommitment, personalCount: state.personalLoans.length,
+        cc: D.ccCommitment, ccCount: state.creditCards.length,
+        total: D.total,
+        eligibility: D.eligibility,
+        updatedAt: Date.now(),
+      }));
+    } catch (e) { /* storage unavailable — fail silently */ }
   }
 
   // -------------------------------------------------------------------
@@ -217,7 +245,7 @@
     if (state.supportingDocs[key]) state.supportingDocs[key].amount = val;
     recalcAndRender();
   }
-  function recalcAndRender() { recalc(); render(); saveState(); }
+  function recalcAndRender() { recalc(); render(); saveState(); saveSummary(); }
 
   // -------------------------------------------------------------------
   // Small UI builders

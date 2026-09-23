@@ -139,6 +139,9 @@
     return `<div class="section-header"><div class="section-no">${no}</div><div><h2>${title}</h2>${sub ? `<div class="sub">${sub}</div>` : ''}</div></div>`;
   }
 
+  // Count suffix for a DSR-summary commitment row, e.g. "House Loan (x2)"
+  function countSuffix(n) { return n > 1 ? ` (x${n})` : ''; }
+
   const CALC_ICON = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
     <rect x="4" y="2" width="16" height="20" rx="2"></rect>
     <line x1="8" y1="6" x2="16" y2="6"></line>
@@ -209,6 +212,25 @@
       }));
     } catch (e) { /* storage unavailable — fail silently */ }
   }
+
+  // -------------------------------------------------------------------
+  // DSR Calculation page hand-off — once the buyer has filled in their
+  // income + every commitment on the DSR Calculation page (its own
+  // sessionStorage summary), that becomes the single source of truth for
+  // Section 03 here: shown as a read-only summary instead of re-asking for
+  // the same numbers, and shared automatically across both projects in
+  // Comparison mode (income doesn't change just because the project does).
+  // Read once at page load — a fresh read happens naturally every time this
+  // page is (re)loaded, including navigating back from the DSR page.
+  // -------------------------------------------------------------------
+  const DSR_SUMMARY_KEY = 'dsrCalcSummary:v1';
+  function loadDsrSummary() {
+    try {
+      const raw = sessionStorage.getItem(DSR_SUMMARY_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) { return null; }
+  }
+  const dsrSummary = loadDsrSummary();
 
   // -------------------------------------------------------------------
   // Default seed — every new instance (including a comparison partner)
@@ -303,19 +325,25 @@
         renovationPackageRm: state.renovationPackageRm
       });
 
-      // ---- DSR & Affordability — reads monthlyInstalment, never re-enters it
-      const existingCommitmentsTotal = CALC.round2(
+      // ---- DSR & Affordability — reads monthlyInstalment, never re-enters it.
+      // Once the DSR Calculation page has been filled in, its income +
+      // commitments totals are used instead of this section's own manual
+      // fields — the same income applies whichever project is being looked
+      // at, so it is never re-entered per project.
+      const dsrIncome = dsrSummary ? dsrSummary.income : state.income;
+      const existingCommitmentsTotal = dsrSummary ? CALC.round2(dsrSummary.total) : CALC.round2(
         state.existingPropertyLoanInstalment + state.carLoanCommitment +
         state.ptptnCommitment + state.personalLoanCommitment + state.creditCardCommitment
       );
       const dsr = CALC.calcDsrPosition({
-        monthlyIncome: state.income, existingCommitmentsTotal, newInstalment: monthlyInstalment,
+        monthlyIncome: dsrIncome, existingCommitmentsTotal, newInstalment: monthlyInstalment,
         dsrThresholdPct: state.dsrThresholdPct
       });
 
       const eligibility = CALC.calcMaxLoanEligibility({
-        monthlyIncome: state.income, monthlyCommitments: existingCommitmentsTotal,
-        numberOfBorrowers: state.borrowers, dsrThresholdPct: state.dsrThresholdPct,
+        monthlyIncome: dsrIncome, monthlyCommitments: existingCommitmentsTotal,
+        numberOfBorrowers: (dsrSummary && dsrSummary.jointApplicant) ? 2 : state.borrowers,
+        dsrThresholdPct: state.dsrThresholdPct,
         annualRatePct: state.interestRatePct, tenureYears: state.tenureYears
       });
 
@@ -487,19 +515,34 @@
       <section class="card" id="sec-3-${id}">
         ${sectionHeader('03', 'DSR (Debt-Service-Ratio)', 'Can you reasonably afford this? Your new instalment is carried over automatically from Section 01.')}
 
+        <a href="dsr-calculation.html" class="exitplan-btn ${dsrSummary ? '' : 'active'}" style="display:block; text-align:center; text-decoration:none; margin-bottom:16px;">Check Your Home Loan Eligibility &rarr;</a>
+
         <div class="section-grid">
-          ${fieldEditable({label:'Nett Monthly Income', tip:null, value:state.income, onInput:'income', min:2000, max:100000, step:500, prefix:'RM'})}
           ${fieldEditable({label:'Indicative DSR Limit', tip:null, value:state.dsrThresholdPct, onInput:'dsrThresholdPct', min:40, max:90, step:1, suffix:'%'})}
+          ${dsrSummary ? '' : fieldEditable({label:'Nett Monthly Income', tip:null, value:state.income, onInput:'income', min:2000, max:100000, step:500, prefix:'RM'})}
         </div>
 
-        <h3 class="mini-head">Monthly Commitments</h3>
-        <div class="section-grid">
-          ${fieldEditable({label:'House Loan', tip:null, value:state.existingPropertyLoanInstalment, onInput:'existingPropertyLoanInstalment', min:0, max:20000, step:100, prefix:'RM'})}
-          ${fieldEditable({label:'Car Loan', tip:null, value:state.carLoanCommitment, onInput:'carLoanCommitment', min:0, max:10000, step:50, prefix:'RM'})}
-          ${fieldEditable({label:'PTPTN', tip:null, value:state.ptptnCommitment, onInput:'ptptnCommitment', min:0, max:5000, step:20, prefix:'RM'})}
-          ${fieldEditable({label:'Personal Loan', tip:null, value:state.personalLoanCommitment, onInput:'personalLoanCommitment', min:0, max:10000, step:50, prefix:'RM'})}
-          ${fieldEditable({label:'Credit Card Outstanding', tip:null, value:state.creditCardCommitment, onInput:'creditCardCommitment', min:0, max:10000, step:50, prefix:'RM'})}
-        </div>
+        ${dsrSummary ? `
+          <div class="result-block" style="margin-top:10px;">
+            <div class="field-label" style="margin-bottom:10px;"><span>From Your DSR Calculation${dsrSummary.jointApplicant ? ' (Joint Applicant)' : ''}</span></div>
+            ${resultRow(dsrSummary.jointApplicant ? 'Combined Nett Income' : 'Nett Income', rm(dsrSummary.income))}
+            ${dsrSummary.houseCount ? resultRow('House Loan' + countSuffix(dsrSummary.houseCount), rm(dsrSummary.house)) : ''}
+            ${dsrSummary.carCount ? resultRow('Car Loan' + countSuffix(dsrSummary.carCount), rm(dsrSummary.car)) : ''}
+            ${dsrSummary.ptptnCount ? resultRow('PTPTN' + countSuffix(dsrSummary.ptptnCount), rm(dsrSummary.ptptn)) : ''}
+            ${dsrSummary.personalCount ? resultRow('Personal Loan' + countSuffix(dsrSummary.personalCount), rm(dsrSummary.personal)) : ''}
+            ${dsrSummary.ccCount ? resultRow('Credit Card' + countSuffix(dsrSummary.ccCount), rm(dsrSummary.cc)) : ''}
+            <div class="result-row total"><span class="k">Total Existing Commitments</span><span class="v">${rm(dsrSummary.total)}</span></div>
+          </div>
+        ` : `
+          <h3 class="mini-head">Monthly Commitments</h3>
+          <div class="section-grid">
+            ${fieldEditable({label:'House Loan', tip:null, value:state.existingPropertyLoanInstalment, onInput:'existingPropertyLoanInstalment', min:0, max:20000, step:100, prefix:'RM'})}
+            ${fieldEditable({label:'Car Loan', tip:null, value:state.carLoanCommitment, onInput:'carLoanCommitment', min:0, max:10000, step:50, prefix:'RM'})}
+            ${fieldEditable({label:'PTPTN', tip:null, value:state.ptptnCommitment, onInput:'ptptnCommitment', min:0, max:5000, step:20, prefix:'RM'})}
+            ${fieldEditable({label:'Personal Loan', tip:null, value:state.personalLoanCommitment, onInput:'personalLoanCommitment', min:0, max:10000, step:50, prefix:'RM'})}
+            ${fieldEditable({label:'Credit Card Outstanding', tip:null, value:state.creditCardCommitment, onInput:'creditCardCommitment', min:0, max:10000, step:50, prefix:'RM'})}
+          </div>
+        `}
 
         <div class="chain-result">
           <div class="chain-item"><div class="l">Existing Commitments (total)</div><div class="v">${rm(D.existingCommitmentsTotal)}</div></div>
@@ -605,10 +648,15 @@
     // Body markup for this instance (everything inside its column)
     // -----------------------------------------------------------------
     function renderBody() {
+      // In Comparison mode, Section 03 (DSR) is shown once only — attached
+      // to Project A — rather than duplicated per project: the buyer's
+      // income and commitments don't change depending on which project is
+      // being looked at, so there is no need to fill it in twice.
+      const showDsrSection = !pageState.comparison || id === 'a';
       return `
         ${renderSection1()}
         ${renderSection2()}
-        ${renderSection3()}
+        ${showDsrSection ? renderSection3() : ''}
         ${renderSection4()}
         ${state.showRentalRoi ? renderRentalSection() : ''}
       `;
@@ -739,8 +787,8 @@
             <p>A Calculator That Makes Everything Clear.</p>
           </div>
           <div class="topbar-actions" style="display:flex; flex-direction:column; align-items:flex-end; gap:8px; flex:none;">
-            <button type="button" class="comparison-btn ${pageState.comparison ? 'active' : ''}" style="margin-left:0;" data-comparison-toggle="1">Comparison</button>
-            <a href="dsr-calculation.html" class="comparison-btn" style="margin-left:0; text-decoration:none; text-align:center;">DSR Calculation</a>
+            <button type="button" class="comparison-btn ${pageState.comparison ? 'active' : ''}" style="margin-left:0; -webkit-appearance:none; appearance:none; display:inline-flex; align-items:center; justify-content:center; line-height:1.3; white-space:nowrap;" data-comparison-toggle="1">Comparison</button>
+            <a href="dsr-calculation.html" class="comparison-btn" style="margin-left:0; text-decoration:none; text-align:center; display:inline-flex; align-items:center; justify-content:center; line-height:1.3; white-space:nowrap;">DSR Calculation</a>
           </div>
         </div>
       </div>
