@@ -690,14 +690,16 @@
             <div class="brand-name">${CFG.branding.agentTitle}</div>
             <div class="brand-tag">${CFG.branding.agentTagline}</div>
           </div>
-          <div class="topbar-actions" style="margin-left:auto; display:flex; flex-direction:column; align-items:flex-end; gap:8px;">
+        </div>
+        <div class="hero-title-row" style="display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-top:16px;">
+          <div class="hero-title-box" style="margin-top:0;">
+            <h1>Integrated Home Loan Calculator</h1>
+            <p>A Calculator That Makes Everything Clear.</p>
+          </div>
+          <div class="topbar-actions" style="display:flex; flex-direction:column; align-items:flex-end; gap:8px; flex:none;">
             <button type="button" class="comparison-btn ${pageState.comparison ? 'active' : ''}" style="margin-left:0;" data-comparison-toggle="1">Comparison</button>
             <a href="dsr-calculation.html" class="comparison-btn" style="margin-left:0; text-decoration:none; text-align:center;">DSR Calculation</a>
           </div>
-        </div>
-        <div class="hero-title-box">
-          <h1>Integrated Home Loan Calculator</h1>
-          <p>A Calculator That Makes Everything Clear.</p>
         </div>
       </div>
 

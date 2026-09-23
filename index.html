@@ -7,14 +7,14 @@
   <meta name="description" content="An interactive property loan, upfront cost, rebate and rental ROI calculator.">
   <link rel="stylesheet" href="styles.css">
   <style>
-    /* Keeps the stacked "Comparison" / "DSR Calculation" buttons full-width
-       and in their own row on mobile, matching how the single button used
-       to behave (see .hero-frame .comparison-btn in styles.css). Scoped
-       here rather than in the shared stylesheet since it only concerns
-       this page's topbar-actions wrapper. */
+    /* The "Comparison" / "DSR Calculation" buttons sit beside the main
+       title on desktop; on mobile they drop below it, stacked full-width.
+       Scoped here rather than the shared stylesheet since it only concerns
+       this page's topbar-actions/hero-title-row wrappers. */
     @media (max-width:600px){
-      .hero-frame .comparison-btn{text-align:center;}
-      .hero-frame .topbar-actions{order:3; width:100%;}
+      .hero-title-row{flex-direction:column; align-items:stretch !important; gap:10px;}
+      .topbar-actions{flex-direction:row !important; width:100%;}
+      .topbar-actions .comparison-btn{flex:1; width:auto;}
     }
   </style>
 </head>
