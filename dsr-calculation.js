@@ -349,7 +349,7 @@
     const elig = D.eligibility;
     return `
       <section class="card summary-card" id="sec-dsr-summary">
-        ${sectionHeader('07', 'Your Total Monthly Commitments', 'This is the figure that feeds into your DSR — carried over item by item, exactly as worked out above.')}
+        ${sectionHeader('07', 'Estimated Home Loan Eligibility', 'Your Total Monthly Commitments vs Your Monthly Nett Income')}
 
         <div class="result-block">
           ${resultRow('House Loan', rm(D.houseCommitment))}
@@ -358,7 +358,7 @@
           ${resultRow('Personal Loan', rm(D.personalCommitment))}
           ${resultRow('Credit Card', rm(D.ccCommitment))}
           <div class="result-row total">
-            <span class="k">Your Total Monthly Commitments<br><span style="font-weight:400; font-size:14.5px; color:var(--ink-faint);">vs Your Nett Income (After deducted EPF, SOCSO and etc.)</span></span>
+            <span class="k">Your Total Monthly Commitments</span>
             <span class="v">${rm(D.total)}</span>
           </div>
           ${state.nettIncome > 0 ? resultRow('Your Nett Income', `<span style="color:var(--value-green);">${rm(state.nettIncome)}</span>`) : ''}
