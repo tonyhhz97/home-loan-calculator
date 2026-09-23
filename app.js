@@ -465,7 +465,7 @@
           <div class="chain-item highlight"><div class="l">Estimated Monthly Instalment</div><div class="v green big">${rm(D.monthlyInstalment)}</div></div>
         </div>
 
-        <div class="disclaimer">Estimate only. Actual interest rate, margin of financing and approved loan amount are determined solely by the bank based on your credit assessment and prevailing lending guidelines. Loan amount and down payment above are calculated on the SPA price, in line with how banks typically assess property value — the rebate and subsidies reduce your effective cost, not the loan basis.</div>
+        <div class="disclaimer"><b>Estimated only.</b></div>
       </section>`;
     }
 
@@ -566,7 +566,7 @@
           ${resultRow('Estimated maximum loan you may qualify for (income-based)', rm(D.eligibility.maxLoan), 'total')}
         </div>
 
-        <div class="disclaimer"><b>Estimate only.</b> ${TIP.dti} This is not a guarantee of loan approval — actual approval, DSR calculation method and limit are determined solely by the bank based on your full financial profile and prevailing responsible-financing guidelines (including Bank Negara Malaysia rules).</div>
+        <div class="disclaimer"><b>Estimated only.</b></div>
       </section>`;
     }
 

@@ -671,7 +671,7 @@
         <a href="${buildWhatsAppLink()}" target="_blank" rel="noopener" class="exitplan-btn active" style="display:block; text-align:center; text-decoration:none;">Send My Details to Tony (For Projects Comparison)</a>
         <a href="index.html?${buildCarryOverParams().toString()}" style="display:block; text-align:center; margin-top:10px; font-size:15.5px; color:var(--ink-soft);">or bring these figures back into the Calculator &rarr;</a>
 
-        <div class="disclaimer" style="margin-top:16px;">Disclaimer: Estimate only, for planning purposes. The healthy DSR ranges, maximum loan tenure (assumes banks lend up to age 70) and maximum loan shown above are general guidelines based on nett income and age, not a bank policy. Actual DSR calculation method, limit, tenure and loan eligibility — and which commitments are included — are determined solely by the bank based on your CTOS/CCRIS credit report, product type and internal policies. Please confirm with Tony or your banker before relying on this breakdown.</div>
+        <div class="disclaimer" style="margin-top:16px;"><b>Estimated only.</b></div>
       </section>`;
   }
 
