@@ -93,6 +93,7 @@
         personal: D.personalCommitment, personalCount: state.personalLoans.length,
         cc: D.ccCommitment, ccCount: state.creditCards.length,
         total: D.total,
+        ccOverUsage: D.ccOverUsage,
         eligibility: D.eligibility,
         updatedAt: Date.now(),
       }));
@@ -110,7 +111,7 @@
     car: () => ({ instalment: 0, applicant: 'main' }),
     ptptn: () => ({ payment: 0, applicant: 'main' }),
     personal: () => ({ payment: 0, applicant: 'main' }),
-    cc: () => ({ mode: 'clear', outstanding: 0, installmentAmount: 0, applicant: 'main' }),
+    cc: () => ({ mode: 'clear', outstanding: 0, installmentAmount: 0, limit: 0, applicant: 'main' }),
   };
 
   // Section 08 — optional supporting documents (financial assets a buyer can
@@ -180,6 +181,14 @@
     return round2(arr.filter(e => e.applicant === applicant).reduce((sum, e) => sum + entryContribution(cat, e), 0));
   }
 
+  // A credit card counts as "over usage" once its outstanding balance passes
+  // 70% of its own limit — a signal to Tony that this card is stretched thin,
+  // separate from whether it's even counted as a monthly commitment.
+  const CC_OVER_USAGE_PCT = 0.7;
+  function isCardOverUsage(entry) {
+    return entry.mode === 'installment' && entry.limit > 0 && entry.outstanding > entry.limit * CC_OVER_USAGE_PCT;
+  }
+
   function recalc() {
     const houseCommitment = round2(state.houseLoans.reduce((sum, e) => sum + entryContribution('house', e), 0));
     const carCommitment = round2(state.carLoans.reduce((sum, e) => sum + entryContribution('car', e), 0));
@@ -187,6 +196,7 @@
     const personalCommitment = round2(state.personalLoans.reduce((sum, e) => sum + entryContribution('personal', e), 0));
     const ccCommitment = round2(state.creditCards.reduce((sum, e) => sum + entryContribution('cc', e), 0));
     const total = round2(houseCommitment + carCommitment + ptptnCommitment + personalCommitment + ccCommitment);
+    const ccOverUsage = state.creditCards.some(isCardOverUsage);
 
     const combinedIncome = round2(state.nettIncome + (state.jointApplicant ? state.nettIncomeJoint : 0));
 
@@ -208,7 +218,7 @@
       eligibility = { range, tenureYears, rate, ageBasis, low: atPct(range.min), high: atPct(range.max) };
     }
 
-    D = { houseCommitment, carCommitment, ptptnCommitment, personalCommitment, ccCommitment, total, combinedIncome, eligibility };
+    D = { houseCommitment, carCommitment, ptptnCommitment, personalCommitment, ccCommitment, total, combinedIncome, eligibility, ccOverUsage };
   }
 
   function set(key, val) { state[key] = val; recalcAndRender(); }
@@ -527,7 +537,7 @@
 
         ${calloutBox(
           'If you always clear the statement balance on time, choose "Clear Outstanding Balance On Time" — it is not counted. ' +
-          'If you are currently on an installment plan (e.g. a 0% instalment purchase), choose "Having Installment Plans" and fill in the outstanding balance and the total installment amount — the installment amount you enter is counted in full as your monthly commitment. Add each card separately below.'
+          'If you are currently on an installment plan (e.g. a 0% instalment purchase), choose "Having Installment Plans" and fill in the outstanding balance, the total installment amount, and the card\'s credit limit — the installment amount you enter is counted in full as your monthly commitment. If the outstanding balance passes 70% of the limit, that card is flagged as over usage in the summary below. Add each card separately below.'
         )}
 
         <div style="margin-top:14px;">
@@ -543,6 +553,10 @@
                 ${moneyFieldEntry('Outstanding Balance', 'cc', index, 'outstanding', entry.outstanding)}
                 ${moneyFieldEntry('Total Installment Amount', 'cc', index, 'installmentAmount', entry.installmentAmount)}
               </div>
+              <div class="section-grid" style="margin-top:12px;">
+                ${moneyFieldEntry('Credit Card Limit', 'cc', index, 'limit', entry.limit, { max: 300000 })}
+              </div>
+              ${isCardOverUsage(entry) ? `<div class="dsr-callout" style="margin-top:10px; border-color:var(--value-orange, #c0703a);">This card's outstanding balance is over 70% of its limit — flagged as over usage.</div>` : ''}
             ` : ''}
           `, { addLabel: '+ Add Credit Card', emptyNote: 'No credit card added.' })}
           ${applicantSubtotalRows('cc')}
@@ -593,7 +607,7 @@
           ${resultRow(`Personal Loan${countSuffix(state.personalLoans.length)}`, rm(D.personalCommitment))}
           ${resultRow(`Credit Card${countSuffix(state.creditCards.length)}`, rm(D.ccCommitment))}
           <div class="result-row total">
-            <span class="k">Your Total Monthly Commitments</span>
+            <span class="k">Your Total Monthly Commitments${D.ccOverUsage ? ' (Over Usage)' : ''}</span>
             <span class="v">${rm(D.total)}</span>
           </div>
           ${D.combinedIncome > 0 ? resultRow(state.jointApplicant ? 'Your Combined Nett Income' : 'Your Nett Income', `<span style="color:var(--value-green);">${rm(D.combinedIncome)}</span>`) : ''}
@@ -708,8 +722,8 @@
     lines.push(`Car Loan${countSuffix(state.carLoans.length)} = ${rm(D.carCommitment)}`);
     lines.push(`PTPTN${countSuffix(state.ptptnList.length)} = ${rm(D.ptptnCommitment)}`);
     lines.push(`Personal Loan${countSuffix(state.personalLoans.length)} = ${rm(D.personalCommitment)}`);
-    lines.push(`Credit Card${countSuffix(state.creditCards.length)} = ${rm(D.ccCommitment)}`);
-    lines.push(`Total Monthly Commitments = ${rm(D.total)}`);
+    lines.push(`Credit Card${countSuffix(state.creditCards.length)} = ${rm(D.ccCommitment)}${D.ccOverUsage ? ' (Over Usage)' : ''}`);
+    lines.push(`Total Monthly Commitments = ${rm(D.total)}${D.ccOverUsage ? ' (Over Usage)' : ''}`);
     lines.push('');
     if (elig) {
       lines.push('*Estimated Eligibility*');

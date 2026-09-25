@@ -565,7 +565,7 @@
           ${dsrSummary.ptptnCount ? resultRow('PTPTN' + countSuffix(dsrSummary.ptptnCount), rm(dsrSummary.ptptn)) : ''}
           ${dsrSummary.personalCount ? resultRow('Personal Loan' + countSuffix(dsrSummary.personalCount), rm(dsrSummary.personal)) : ''}
           ${dsrSummary.ccCount ? resultRow('Credit Card' + countSuffix(dsrSummary.ccCount), rm(dsrSummary.cc)) : ''}
-          <div class="result-row total"><span class="k">Total Existing Commitments</span><span class="v">${rm(dsrSummary.total)}</span></div>
+          <div class="result-row total"><span class="k">Total Existing Commitments${dsrSummary.ccOverUsage ? ' (Over Usage)' : ''}</span><span class="v">${rm(dsrSummary.total)}</span></div>
         </div>
 
         <div class="chain-result">
