@@ -562,7 +562,7 @@
         <div class="subsidy-row">
           <div class="field-label" style="flex:1.6; display:flex; align-items:center; margin:0;"><span>Tier ${i + 1} — % of ${baseLabel}</span></div>
           <div class="input-affix">
-            <input type="text" inputmode="decimal" class="affix-input" style="text-align:center;" data-rebate-tier-pct="${i}" value="${groupNum(t.pct, 2)}">
+            <input type="text" inputmode="decimal" class="affix-input" style="text-align:center;" data-rebate-tier-pct="${i}" value="${groupNum(t.pct, 0)}">
             <span class="affix-suf">%</span>
           </div>
           ${state.rebateTiers.length > 1 ? `<button type="button" class="subsidy-remove-btn" data-rebate-tier-remove="${i}" title="Remove">&times;</button>` : ''}
