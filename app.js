@@ -51,6 +51,11 @@
   // them back out before parsing whatever the buyer typed.
   const groupNum = (n, decimals = 0) => Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
   const cleanNum = (s) => String(s == null ? '' : s).replace(/,/g, '');
+  // A percentage that trims to at most 2dp without trailing zeros, e.g.
+  // 12 -> "12", 12.5 -> "12.5", 12.75 -> "12.75" — used for derived
+  // percentages (effective rebate %, down payment %) that aren't always a
+  // clean whole number the way a manually-typed % input is.
+  const pctTrim = (n) => Number((n || 0).toFixed(2));
 
   // -------------------------------------------------------------------
   // URL param overrides (seed defaults for the first instance)
@@ -287,7 +292,16 @@
       // + Extra Subsidy — the only incentive inputs now. Extra subsidies are
       // a free-form list: label + raw amount, where "raw" can be a number
       // (comma-formatted or not) OR text like "N/A" (treated as 0 everywhere).
+      //
+      // Rebate has two modes:
+      // - 'simple' (default): one flat % of the SPA price — rebatePct below.
+      // - 'alternative': a stack of rebate tiers, each a % taken off the
+      //   REMAINING price after the tier before it (5% off SPA price, then
+      //   another 5% off the resulting nett price, and so on) — some
+      //   developers structure their rebate this way instead of one flat %.
       rebatePct: initRebatePct,
+      rebateMode: 'simple',
+      rebateTiers: [{ pct: initRebatePct }],
       extraSubsidies: [{ label: '', raw: '' }],
 
       legalFeeSpaAbsorbed: p.legalFeeSpaAbsorbedByDeveloper,
@@ -329,14 +343,39 @@
       const tenureYears = tenureFromDsr ? dsrSummary.eligibility.tenureYears : state.tenureYears;
 
       const loanAmount = CALC.round2(state.price * (state.loanMarginPct / 100));
-      const downPaymentPct = 100 - state.loanMarginPct;
-      const downPayment = CALC.round2(state.price - loanAmount);
+
+      // ---- Developer's Rebate — either a flat % of the SPA price, or (in
+      // Alternative Rebate Structure mode) a stack of tiers, each a % taken
+      // off whatever price remains after the tier before it. Computed here,
+      // before Down Payment, because Down Payment now needs the rebate
+      // amount too (see below).
+      let rebateAmount, rebateTiersDetail = [];
+      if (state.rebateMode === 'alternative' && state.rebateTiers && state.rebateTiers.length) {
+        let remaining = state.price;
+        state.rebateTiers.forEach((tier) => {
+          const base = remaining;
+          const amt = CALC.round2(base * ((tier.pct || 0) / 100));
+          remaining = CALC.round2(remaining - amt);
+          rebateTiersDetail.push({ pct: tier.pct || 0, base, amt });
+        });
+        rebateAmount = CALC.round2(state.price - remaining);
+      } else {
+        rebateAmount = CALC.round2(state.price * (state.rebatePct / 100));
+      }
+      const effectiveRebatePct = state.price > 0 ? CALC.round2((rebateAmount / state.price) * 100) : 0;
+
+      // ---- Down Payment — the actual cash the buyer needs to put down: the
+      // remaining slice of the price after both the loan margin AND the
+      // developer's rebate are accounted for (rebate reduces what the buyer
+      // has to pay out of pocket up front, same as the loan does).
+      const downPaymentPct = CALC.round2(100 - state.loanMarginPct - effectiveRebatePct);
+      const downPayment = CALC.round2(state.price - loanAmount - rebateAmount);
+
       const monthlyInstalment = CALC.calcMonthlyInstalment(loanAmount, state.interestRatePct, tenureYears);
       const totalRepayment = CALC.calcTotalRepayment(monthlyInstalment, tenureYears);
       const totalInterest = CALC.calcTotalInterest(totalRepayment, loanAmount);
 
-      // ---- Rebate (%) + Extra Subsidy → Final Nett Price
-      const rebateAmount = CALC.round2(state.price * (state.rebatePct / 100));
+      // ---- Extra Subsidy → Final Nett Price
       const subsidyTotal = CALC.calcListTotal(state.extraSubsidies, 'raw');
       const finalNettPrice = CALC.calcFinalNettPrice(state.price, rebateAmount, subsidyTotal);
 
@@ -390,7 +429,7 @@
 
       D = {
         loanAmount, downPaymentPct, downPayment, monthlyInstalment, totalRepayment, totalInterest,
-        rebateAmount, subsidyTotal, finalNettPrice, costSaving,
+        rebateAmount, effectiveRebatePct, rebateTiersDetail, subsidyTotal, finalNettPrice, costSaving,
         existingCommitmentsTotal, dsr, eligibility, dsrThresholdPct, hasDsrIncome,
         maintenanceFeeMonthly, expectedMonthlyReturn, rentalPerYear, rentalRoiPct,
         projectDisplayName, tenureYears, tenureFromDsr
@@ -435,7 +474,12 @@
         </div>
 
         <div class="section-grid" style="margin-top:2px;">
-          ${fieldEditable({label:"Developer's Rebate", tip:null, value:state.rebatePct, onInput:'rebatePct', min:0, max:30, step:0.5, suffix:'%'})}
+          ${state.rebateMode === 'alternative'
+            ? `<div class="field">
+                 <div class="field-label"><span>Developer's Rebate</span></div>
+                 <div class="t-sub" style="margin-top:8px;">Using Alternative Rebate Structure below — see tiers.</div>
+               </div>`
+            : fieldEditable({label:"Developer's Rebate", tip:null, value:state.rebatePct, onInput:'rebatePct', min:0, max:30, step:0.5, suffix:'%'})}
           <div class="field">
             <div class="field-label"><span>Layout &amp; Size</span></div>
             <div class="layout-size-row">
@@ -447,9 +491,19 @@
             </div>
           </div>
         </div>
-        <div class="chain-result" style="margin-top:0;">
-          <div class="chain-item"><div class="l">Developer's Rebate (${state.rebatePct}%)</div><div class="v">${rm(D.rebateAmount)}</div></div>
-          <div class="chain-item"><div class="l">Estimated Down Payment (${D.downPaymentPct}%)</div><div class="v orange">${rm(D.downPayment)}</div></div>
+
+        <div class="toggle-row" style="margin-top:2px;">
+          <div><div class="t-label">Alternative Rebate Structure</div><div class="t-sub">For rebates given in stacked stages (e.g. 5% off the SPA price, then another 5% off the resulting nett price) instead of one flat %.</div></div>
+          <label class="switch">
+            <input type="checkbox" ${state.rebateMode === 'alternative' ? 'checked' : ''} data-rebate-mode-toggle="1">
+            <span class="track"></span>
+          </label>
+        </div>
+        ${state.rebateMode === 'alternative' ? renderRebateTiers() : ''}
+
+        <div class="chain-result" style="margin-top:${state.rebateMode === 'alternative' ? '14px' : '0'};">
+          <div class="chain-item"><div class="l">Developer's Rebate (${pctTrim(D.effectiveRebatePct)}%)</div><div class="v">${rm(D.rebateAmount)}</div></div>
+          <div class="chain-item"><div class="l">Down Payment (${pctTrim(D.downPaymentPct)}%)</div><div class="v orange">${rm(D.downPayment)}</div></div>
         </div>
 
         <div class="divider"></div>
@@ -461,7 +515,7 @@
 
         <div class="chain-result" style="margin-top:14px;">
           <div class="chain-item"><div class="l">SPA Price</div><div class="v">${rm(state.price)}</div></div>
-          <div class="chain-item"><div class="l">– Developer's Rebate (${state.rebatePct}%)</div><div class="v">${rm(D.rebateAmount)}</div></div>
+          <div class="chain-item"><div class="l">– Developer's Rebate (${pctTrim(D.effectiveRebatePct)}%)</div><div class="v">${rm(D.rebateAmount)}</div></div>
           <div class="chain-item"><div class="l">– Extra Subsidy (total)</div><div class="v">${rm(D.subsidyTotal)}</div></div>
           <div class="chain-item highlight"><div class="l">Final Nett Price</div><div class="v orange big">${rm(D.finalNettPrice)}</div></div>
         </div>
@@ -494,6 +548,32 @@
           </div>
           <button type="button" class="subsidy-remove-btn" data-subsidy-remove="${i}" title="Remove">&times;</button>
         </div>`).join('');
+    }
+
+    // Alternative Rebate Structure — a stack of tiers, each tier's % taken
+    // off whatever price remains after the tier before it (e.g. 5% off the
+    // SPA price, then another 5% off the resulting nett price). Tier 1 is
+    // always "% of SPA Price"; every tier after that is "% of Nett Price
+    // (after Tier N)" so the buyer can see exactly what each % is applied to.
+    function renderRebateTiers() {
+      const rows = state.rebateTiers.map((t, i) => {
+        const baseLabel = i === 0 ? 'SPA Price' : `Nett Price (after Tier ${i})`;
+        return `
+        <div class="subsidy-row">
+          <div class="field-label" style="flex:1.6; display:flex; align-items:center; margin:0;"><span>Tier ${i + 1} — % of ${baseLabel}</span></div>
+          <div class="input-affix">
+            <input type="text" inputmode="decimal" class="affix-input" style="text-align:center;" data-rebate-tier-pct="${i}" value="${groupNum(t.pct, 2)}">
+            <span class="affix-suf">%</span>
+          </div>
+          ${state.rebateTiers.length > 1 ? `<button type="button" class="subsidy-remove-btn" data-rebate-tier-remove="${i}" title="Remove">&times;</button>` : ''}
+        </div>`;
+      }).join('');
+      return `
+        <div class="subsidy-list" style="margin-top:10px;">${rows}</div>
+        <button type="button" class="subsidy-add-btn" data-rebate-tier-add="1">+ Add Rebate Tier</button>
+        <div class="chain-result" style="margin-top:10px;">
+          ${D.rebateTiersDetail.map((t, i) => `<div class="chain-item"><div class="l">Tier ${i + 1} (${pctTrim(t.pct)}% of ${rm(t.base)})</div><div class="v">${rm(t.amt)}</div></div>`).join('')}
+        </div>`;
     }
 
     // -----------------------------------------------------------------
@@ -757,6 +837,44 @@
       rootEl.querySelectorAll('[data-subsidy-add]').forEach(el => {
         el.addEventListener('click', () => {
           state.extraSubsidies.push({ label: '', raw: '' });
+          inst.recalcAndRender();
+        });
+      });
+      // Alternative Rebate Structure — mode toggle + its tier rows
+      rootEl.querySelectorAll('[data-rebate-mode-toggle]').forEach(el => {
+        el.addEventListener('change', (e) => {
+          const nextMode = e.target.checked ? 'alternative' : 'simple';
+          if (nextMode === 'alternative' && (!state.rebateTiers || !state.rebateTiers.length)) {
+            state.rebateTiers = [{ pct: state.rebatePct || 0 }];
+          }
+          state.rebateMode = nextMode;
+          inst.recalcAndRender();
+        });
+      });
+      rootEl.querySelectorAll('[data-rebate-tier-pct]').forEach(el => {
+        const commit = () => {
+          const i = parseInt(el.getAttribute('data-rebate-tier-pct'), 10);
+          if (state.rebateTiers[i]) {
+            let val = parseFloat(cleanNum(el.value));
+            if (isNaN(val)) val = 0;
+            val = Math.min(100, Math.max(0, val));
+            state.rebateTiers[i].pct = val;
+          }
+          inst.recalcAndRender();
+        };
+        el.addEventListener('change', commit);
+        el.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); el.blur(); } });
+      });
+      rootEl.querySelectorAll('[data-rebate-tier-remove]').forEach(el => {
+        el.addEventListener('click', () => {
+          const i = parseInt(el.getAttribute('data-rebate-tier-remove'), 10);
+          if (state.rebateTiers.length > 1) state.rebateTiers.splice(i, 1);
+          inst.recalcAndRender();
+        });
+      });
+      rootEl.querySelectorAll('[data-rebate-tier-add]').forEach(el => {
+        el.addEventListener('click', () => {
+          state.rebateTiers.push({ pct: 0 });
           inst.recalcAndRender();
         });
       });
