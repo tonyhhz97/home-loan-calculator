@@ -718,7 +718,7 @@
           ${fieldEditable({label:'Expected Monthly Rental', tip:null, value:state.monthlyRental, onInput:'monthlyRental', min:0, max:20000, step:50, prefix:'RM'})}
         </div>
         <div class="section-grid">
-          ${fieldEditable({label:'Maintenance Fee + Sinking Fund', tip:'Per sqft per month — the total below is this rate × your unit size.', value:state.maintenanceFeePerSqft, onInput:'maintenanceFeePerSqft', min:0, max:2, step:0.01, prefix:'RM', suffix:'/sqft', decimals:2})}
+          ${fieldEditable({label:'Maintenance Fee + Sinking Fund (Per sqft)', tip:null, value:state.maintenanceFeePerSqft, onInput:'maintenanceFeePerSqft', min:0, max:2, step:0.01, prefix:'RM', suffix:'/ sqft', decimals:2})}
         </div>
         <div class="chain-result" style="margin-top:0;">
           <div class="chain-item"><div class="l">Maintenance Fee + Sinking Fund (total)</div><div class="v orange">${rm(D.maintenanceFeeMonthly)}</div></div>

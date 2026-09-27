@@ -685,7 +685,7 @@
         <a href="${buildWhatsAppLink()}" target="_blank" rel="noopener" class="exitplan-btn active" style="display:block; text-align:center; text-decoration:none;">Send My Details to Tony (For Projects Comparison)</a>
         <a href="index.html?${buildCarryOverParams().toString()}" style="display:block; text-align:center; margin-top:10px; font-size:15.5px; color:var(--ink-soft);">or bring these figures back into the Calculator &rarr;</a>
 
-        <div class="disclaimer" style="margin-top:16px;"><b>Estimated only.</b></div>
+        <div class="disclaimer" style="margin-top:16px;"><b>Disclaimer:</b> These figures are based on what you entered and general assumptions, not a bank's actual assessment — your real loan eligibility, interest rate and approved amount can only be confirmed by the bank. <b>Estimated only.</b></div>
       </section>`;
   }
 
