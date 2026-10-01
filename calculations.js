@@ -201,6 +201,49 @@ const CALC = (function () {
     }, 0));
   }
 
+  // ---- Flexi Loan × Interest Saving (optional, shown on demand) ---------
+  // Simulates paying extra on top of the normal instalment every month —
+  // the extra amount goes straight toward reducing the outstanding
+  // principal, which is how a Flexi/Semi-Flexi loan account treats an
+  // overpayment (it is NOT how a conventional term loan works, hence the
+  // "only applicable under Flexi Loan" caveat shown with it). Comparing
+  // this simulation against the original (no-extra) amortization gives the
+  // interest saved and how much earlier the loan would be fully paid off.
+  function calcFlexiLoanSavings({ loanAmount, annualRatePct, tenureYears, monthlyInstalment, extraPaymentPerMonth }) {
+    const P = clampMin0(loanAmount);
+    const r = (annualRatePct / 100) / 12;
+    const extra = clampMin0(extraPaymentPerMonth);
+    const originalTotalInterest = calcTotalInterest(calcTotalRepayment(monthlyInstalment, tenureYears), P);
+
+    if (P === 0 || monthlyInstalment === 0) {
+      return { payoffMonths: 0, totalInterestPaid: 0, interestSaving: 0, payoffEarlierByYears: 0 };
+    }
+    if (extra <= 0) {
+      return { payoffMonths: Math.round(tenureYears * 12), totalInterestPaid: originalTotalInterest, interestSaving: 0, payoffEarlierByYears: 0 };
+    }
+
+    let balance = P;
+    let totalInterestPaid = 0;
+    let months = 0;
+    const payment = monthlyInstalment + extra;
+    const safetyCapMonths = 600; // 50 years — generous upper bound against runaway loops
+
+    while (balance > 0.01 && months < safetyCapMonths) {
+      const interest = balance * r;
+      let principalPortion = payment - interest;
+      if (principalPortion < 0) principalPortion = 0;
+      if (principalPortion > balance) principalPortion = balance;
+      totalInterestPaid += interest;
+      balance -= principalPortion;
+      months += 1;
+    }
+
+    totalInterestPaid = round2(totalInterestPaid);
+    const interestSaving = round2(clampMin0(originalTotalInterest - totalInterestPaid));
+    const payoffEarlierByYears = round2(clampMin0(tenureYears - months / 12));
+    return { payoffMonths: months, totalInterestPaid, interestSaving, payoffEarlierByYears };
+  }
+
   // ---- Cost Saving Breakdown (Section 02) --------------------------------
   // What the developer absorbs on the buyer's behalf: legal fee (SPA), legal
   // fee (loan agreement), loan agreement stamp duty, and disbursement/admin
@@ -269,7 +312,7 @@ const CALC = (function () {
     calcUpfrontCost, calcTieredDiscount,
     calcFinalNettPrice, calcListTotal, calcCostSavingBreakdown,
     calcMaintenanceTotal, calcExpectedMonthlyReturn, calcRentalRoiPct,
-    calcDsrPosition
+    calcDsrPosition, calcFlexiLoanSavings
   };
 })();
 

@@ -315,6 +315,13 @@
       // Exit Plan — off by default; clicking the button next to the
       // Financial Summary reveals the Rental ROI section on demand.
       showRentalRoi: false,
+
+      // Flexi Loan × Interest Saving — off by default; clicking the button
+      // next to the Financial Summary reveals it on demand. extraPaymentPerMonth
+      // is the buyer's assumed overpayment, only meaningful under a
+      // Flexi/Semi-Flexi loan facility (see the section's own disclaimer).
+      showFlexiLoan: false,
+      extraPaymentPerMonth: 500,
     };
   }
 
@@ -420,6 +427,13 @@
       const rentalPerYear = CALC.round2(state.monthlyRental * 12);
       const rentalRoiPct = CALC.calcRentalRoiPct(rentalPerYear, finalNettPrice);
 
+      // ---- Flexi Loan × Interest Saving (shown on demand) — see
+      // CALC.calcFlexiLoanSavings for the simulation itself.
+      const flexiLoan = CALC.calcFlexiLoanSavings({
+        loanAmount, annualRatePct: state.interestRatePct, tenureYears,
+        monthlyInstalment, extraPaymentPerMonth: state.extraPaymentPerMonth
+      });
+
       // ---- Combined project identity for display, e.g.
       // "Queenswoodz @ Bukit Jalil (B-22-12)"
       const projectDisplayName =
@@ -432,7 +446,7 @@
         rebateAmount, effectiveRebatePct, rebateTiersDetail, subsidyTotal, finalNettPrice, costSaving,
         existingCommitmentsTotal, dsr, eligibility, dsrThresholdPct, hasDsrIncome,
         maintenanceFeeMonthly, expectedMonthlyReturn, rentalPerYear, rentalRoiPct,
-        projectDisplayName, tenureYears, tenureFromDsr
+        flexiLoan, projectDisplayName, tenureYears, tenureFromDsr
       };
     }
 
@@ -683,6 +697,7 @@
           <div class="summary-actions">
             <div class="status-pill ${posClass}">${posLabel}</div>
             <button type="button" class="exitplan-btn ${state.showRentalRoi ? 'active' : ''}" data-exitplan="1">${state.showRentalRoi ? 'Hide Rental ROI' : 'Exit Plan'}</button>
+            <button type="button" class="exitplan-btn ${state.showFlexiLoan ? 'active' : ''}" data-flexiloan="1">${state.showFlexiLoan ? 'Hide Flexi Loan Savings' : 'Flexi Loan x Interest Saving'}</button>
           </div>
         </div>
 
@@ -749,6 +764,35 @@
     }
 
     // -----------------------------------------------------------------
+    // SECTION 06 — Flexi Loan × Interest Saving (shown only after the
+    // button next to the Financial Summary is clicked)
+    // -----------------------------------------------------------------
+    function renderFlexiLoanSection() {
+      const F = D.flexiLoan;
+      const statBox = (label, value) => `
+        <div style="background:var(--accent); color:#fff; border-radius:var(--radius-sm); padding:14px 10px; text-align:center;">
+          <div style="font-size:13px; font-weight:600; text-transform:uppercase; letter-spacing:.04em; opacity:.85;">${label}</div>
+          <div style="font-size:21px; font-weight:700; margin-top:4px;">${value}</div>
+        </div>`;
+      return `
+      <section class="card" id="sec-6-${id}">
+        ${sectionHeader('06', 'Flexi Loan &times; Interest Saving', 'Only applicable if your loan comes with a Flexi/Semi-Flexi facility — extra payments go straight toward your principal, cutting the interest you would otherwise pay and shortening your loan.')}
+
+        <div class="section-grid">
+          ${fieldEditable({label:'Extra Payment / Month', tip:null, value:state.extraPaymentPerMonth, onInput:'extraPaymentPerMonth', min:0, max:20000, step:50, prefix:'RM'})}
+        </div>
+
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(140px,1fr)); gap:10px; margin-top:14px;">
+          ${statBox('Extra Payment / Month', rm(state.extraPaymentPerMonth))}
+          ${statBox('Interest Saving', rm(F.interestSaving))}
+          ${statBox('Payoff Earlier By', F.payoffEarlierByYears.toFixed(1) + ' yrs')}
+        </div>
+
+        <div class="disclaimer" style="margin-top:16px;">Flexi Loan features, availability, and how excess payments are treated vary by bank and loan package. Confirm with your banker whether this loan comes with a Flexi/Semi-Flexi facility before relying on these figures. <b>Estimated only.</b></div>
+      </section>`;
+    }
+
+    // -----------------------------------------------------------------
     // Body markup for this instance (everything inside its column)
     // -----------------------------------------------------------------
     function renderBody() {
@@ -762,6 +806,7 @@
         ${renderSection2()}
         ${showDsrSection ? renderSection3() : ''}
         ${renderSection4()}
+        ${state.showFlexiLoan ? renderFlexiLoanSection() : ''}
         ${state.showRentalRoi ? renderRentalSection() : ''}
       `;
     }
@@ -882,6 +927,13 @@
       rootEl.querySelectorAll('[data-exitplan]').forEach(el => {
         el.addEventListener('click', () => {
           state.showRentalRoi = !state.showRentalRoi;
+          inst.recalcAndRender();
+        });
+      });
+      // Flexi Loan × Interest Saving — reveals/hides its section for this instance only
+      rootEl.querySelectorAll('[data-flexiloan]').forEach(el => {
+        el.addEventListener('click', () => {
+          state.showFlexiLoan = !state.showFlexiLoan;
           inst.recalcAndRender();
         });
       });
