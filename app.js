@@ -118,7 +118,7 @@
           <input type="text" inputmode="decimal" class="affix-input" ${readOnly ? `readonly style="background:var(--border); color:var(--ink-soft); cursor:not-allowed;"` : `data-bind-manual="${onInput}" data-min="${min}" data-max="${max}"`} value="${shownValue}">
           ${suffix ? `<span class="affix-suf">${suffix}</span>` : ''}
         </div>
-        ${note ? `<div class="t-sub" style="margin-top:6px;">${note}</div>` : ''}
+        ${note ? `<div class="t-sub" style="margin-top:6px; font-size:12.5px;">${note}</div>` : ''}
       </div>`;
   }
 
@@ -525,7 +525,7 @@
         <div class="section-grid">
           ${fieldEditable({label:'Interest Rate', tip:null, value:state.interestRatePct, onInput:'interestRatePct', min:2.5, max:6.5, step:0.05, suffix:'%', decimals:2})}
           ${D.tenureFromDsr
-            ? fieldEditable({label:'Loan Tenure', tip:null, value:D.tenureYears, suffix:' years', readOnly:true, note:"Based on your age from the DSR Calculation page — go back there to change it."})
+            ? fieldEditable({label:'Loan Tenure', tip:null, value:D.tenureYears, suffix:' years', readOnly:true, note:"From your age on the DSR Calculation page — edit it there."})
             : fieldEditable({label:'Loan Tenure', tip:null, value:state.tenureYears, onInput:'tenureYears', min:5, max:35, step:1, suffix:' years'})}
         </div>
 
