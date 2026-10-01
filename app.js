@@ -118,7 +118,7 @@
           <input type="text" inputmode="decimal" class="affix-input" ${readOnly ? `readonly style="background:var(--border); color:var(--ink-soft); cursor:not-allowed;"` : `data-bind-manual="${onInput}" data-min="${min}" data-max="${max}"`} value="${shownValue}">
           ${suffix ? `<span class="affix-suf">${suffix}</span>` : ''}
         </div>
-        ${note ? `<div class="t-sub" style="margin-top:6px; font-size:12.5px;">${note}</div>` : ''}
+        ${note ? `<div class="t-sub" style="margin-top:6px; font-size:16.5px;">${note}</div>` : ''}
       </div>`;
   }
 
