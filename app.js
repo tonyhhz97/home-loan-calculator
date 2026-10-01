@@ -15,7 +15,7 @@
                  → (+ interestRatePct, tenureYears) → monthlyInstalment
                  → costSavingBreakdown (Section 02, informational)
                  → (+ income, existingCommitments) → estimatedDSR
-                 → Exit Plan → Rental ROI (Section 05, shown on demand)
+                 → Exit Plan → Return On Investment / ROI (Section 05, shown on demand)
 
    COMPARISON MODE: clicking "Comparison" in the topbar mounts a second,
    fully independent instance side by side, so a buyer can compare two
@@ -183,6 +183,18 @@
     tooltipEl.style.left = left + 'px';
   }
   function hideTip() { if (tooltipEl) { tooltipEl.remove(); tooltipEl = null; } }
+
+  // Jumps straight to a section once it's revealed (e.g. clicking "Exit
+  // Plan" or "Flexi Loan x Interest Saving" should bring the buyer right
+  // there instead of leaving them to scroll down and find it themselves).
+  // Deferred to the next frame so the just-rendered section exists in the
+  // DOM before we measure/scroll to it.
+  function scrollToSection(elId) {
+    requestAnimationFrame(() => {
+      const target = document.getElementById(elId);
+      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
   function bindTips(rootEl) {
     rootEl.querySelectorAll('.tip').forEach(el => {
       el.addEventListener('mouseenter', (e) => showTip(e, el.getAttribute('data-tip')));
@@ -696,8 +708,8 @@
           </div>
           <div class="summary-actions">
             <div class="status-pill ${posClass}">${posLabel}</div>
-            <button type="button" class="exitplan-btn ${state.showRentalRoi ? 'active' : ''}" data-exitplan="1">${state.showRentalRoi ? 'Hide Rental ROI' : 'Exit Plan'}</button>
-            <button type="button" class="exitplan-btn ${state.showFlexiLoan ? 'active' : ''}" data-flexiloan="1">${state.showFlexiLoan ? 'Hide Flexi Loan Savings' : 'Flexi Loan x Interest Saving'}</button>
+            <button type="button" class="exitplan-btn ${state.showRentalRoi ? 'active' : ''}" data-exitplan="1">${state.showRentalRoi ? 'Hide Exit Plan' : 'Exit Plan'}</button>
+            <button type="button" class="exitplan-btn ${state.showFlexiLoan ? 'active' : ''}" data-flexiloan="1">${state.showFlexiLoan ? 'Hide Flexi Loan' : 'Flexi Loan x Interest Saving'}</button>
           </div>
         </div>
 
@@ -717,12 +729,12 @@
     }
 
     // -----------------------------------------------------------------
-    // SECTION 05 — Rental ROI (shown only after "Exit Plan" is clicked)
+    // SECTION 05 — Return On Investment (ROI) (shown only after "Exit Plan" is clicked)
     // -----------------------------------------------------------------
     function renderRentalSection() {
       return `
       <section class="card" id="sec-5-${id}">
-        ${sectionHeader('05', 'Rental ROI', 'Same property, same loan — now layered with expected rental income.')}
+        ${sectionHeader('05', 'Return On Investment (ROI)', 'Same property, same loan — now layered with expected rental income.')}
 
         <div class="chain-result">
           <div class="chain-item"><div class="l">Monthly Instalment (from Section 01)</div><div class="v">${rm(D.monthlyInstalment)}</div></div>
@@ -783,7 +795,7 @@
         </div>
 
         <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(140px,1fr)); gap:10px; margin-top:14px;">
-          ${statBox('Extra Payment / Month', rm(state.extraPaymentPerMonth))}
+          ${statBox('Extra Payment / Year', rm(state.extraPaymentPerMonth * 12))}
           ${statBox('Interest Saving', rm(F.interestSaving))}
           ${statBox('Payoff Earlier By', F.payoffEarlierByYears.toFixed(1) + ' yrs')}
         </div>
@@ -923,18 +935,22 @@
           inst.recalcAndRender();
         });
       });
-      // Exit Plan — reveals/hides the Rental ROI section for this instance only
+      // Exit Plan — reveals/hides the Return On Investment (ROI) section for
+      // this instance only, and jumps straight to it the moment it opens.
       rootEl.querySelectorAll('[data-exitplan]').forEach(el => {
         el.addEventListener('click', () => {
           state.showRentalRoi = !state.showRentalRoi;
           inst.recalcAndRender();
+          if (state.showRentalRoi) scrollToSection('sec-5-' + id);
         });
       });
-      // Flexi Loan × Interest Saving — reveals/hides its section for this instance only
+      // Flexi Loan × Interest Saving — reveals/hides its section for this
+      // instance only, and jumps straight to it the moment it opens.
       rootEl.querySelectorAll('[data-flexiloan]').forEach(el => {
         el.addEventListener('click', () => {
           state.showFlexiLoan = !state.showFlexiLoan;
           inst.recalcAndRender();
+          if (state.showFlexiLoan) scrollToSection('sec-6-' + id);
         });
       });
       bindTips(rootEl);
